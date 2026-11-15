@@ -12,9 +12,11 @@ interface Props {
   onSelect: (id: string) => void
   onChatCreated: () => Promise<void>
   onSignOut: () => void
+  unread: Record<string, number>
+  onOpenProfile: () => void
 }
 
-export default function Sidebar({ me, chats, loading, selectedId, onSelect, onChatCreated, onSignOut }: Props) {
+export default function Sidebar({ me, chats, loading, selectedId, onSelect, onChatCreated, onSignOut, unread, onOpenProfile }: Props) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Profile[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -64,7 +66,7 @@ export default function Sidebar({ me, chats, loading, selectedId, onSelect, onCh
             results.map((p) => (
               <button key={p.id} onClick={() => void startChat(p)}
                 className="flex w-full items-center gap-3 rounded-xl p-3 text-left transition hover:bg-surface">
-                <Avatar name={p.display_name} />
+                <Avatar name={p.display_name} url={p.avatar_url} />
                 <div className="min-w-0">
                   <div className="truncate text-sm font-medium">{p.display_name}</div>
                   <div className="truncate text-xs text-muted">@{p.username} · написать</div>
@@ -83,18 +85,21 @@ export default function Sidebar({ me, chats, loading, selectedId, onSelect, onCh
             <button key={c.id} onClick={() => onSelect(c.id)}
               className={`flex w-full items-center gap-3 rounded-xl p-3 text-left transition hover:bg-surface ${
                 c.id === selectedId ? 'bg-surface' : ''}`}>
-              <Avatar name={c.name} />
+              <Avatar name={c.name} url={c.avatarUrl} />
               <div className="min-w-0">
                 <div className="truncate text-sm font-medium">{c.name}</div>
                 {c.username && <div className="truncate text-xs text-muted">@{c.username}</div>}
               </div>
+              {unread[c.id] > 0 && (
+                <span className="sunset-gradient ml-auto rounded-full px-2 py-0.5 text-xs font-semibold text-bg">{unread[c.id]}</span>
+              )}
             </button>
           ))
         )}
       </div>
 
       <div className="flex items-center gap-3 border-t border-white/5 p-3">
-        <Avatar name={me.display_name} size={36} />
+        <button onClick={onOpenProfile} title="Профиль"><Avatar name={me.display_name} url={me.avatar_url} size={36} /></button>
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-medium">{me.display_name}</div>
           <div className="truncate text-xs text-muted">@{me.username}</div>
