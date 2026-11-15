@@ -4,6 +4,9 @@ export interface Profile {
   display_name: string
   bio: string | null
   avatar_url: string | null
+  created_at: string
+  showcase_number: string | null
+  showcase_handle: string | null
 }
 
 export interface Message {
@@ -13,6 +16,8 @@ export interface Message {
   body: string | null
   reply_to: string | null
   created_at: string
+  edited_at: string | null
+  forwarded_from: string | null
 }
 
 export interface Reaction {
@@ -21,11 +26,29 @@ export interface Reaction {
   emoji: string
 }
 
+export interface LastMessage {
+  body: string | null
+  created_at: string
+  sender_id: string
+}
+
 export interface ChatItem {
   id: string
+  kind: 'direct' | 'group' | 'saved'
   name: string
   username: string | null
   avatarUrl: string | null
   bio: string | null
   otherId: string | null
+  joinedAt: string | null
+  number: string | null
+  handle: string | null
+}
+
+export interface MarketItem {
+  id: string
+  kind: 'number' | 'username'
+  value: string
+  owner_id: string | null
+  price: number | null
 }

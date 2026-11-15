@@ -1,14 +1,17 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
-import type { ChatItem, Message, Reaction } from '../../lib/types'
+import { getFlag, getMuted, playBeep } from '../../lib/prefs'
+import type { ChatItem, LastMessage, Message, Reaction } from '../../lib/types'
 import {
-  addReaction, fetchMessages, fetchReactions, listChats, markRead, removeReaction, unreadCounts,
+  addReaction, fetchMessages, fetchPeerRead, fetchPin, fetchReactions, getSavedChat, lastMessages, listChats,
+  markRead, removeReaction, unreadCounts,
 } from './api'
 
 export function useChats(myId: string, selectedId: string | null) {
   const [chats, setChats] = useState<ChatItem[]>([])
   const [unread, setUnread] = useState<Record<string, number>>({})
+  const [last, setLast] = useState<Record<string, LastMessage>>({})
   const [loading, setLoading] = useState(true)
   const selectedRef = useRef(selectedId)
 
@@ -20,34 +23,58 @@ export function useChats(myId: string, selectedId: string | null) {
     finally { setLoading(false) }
   }, [myId])
 
-  const loadUnread = useCallback(async () => {
-    try { setUnread(await unreadCounts()) }
-    catch (e) { console.error('unreadCounts failed', e) }
+  const loadMeta = useCallback(async () => {
+    try {
+      const [u, l] = await Promise.all([unreadCounts(), lastMessages()])
+      setUnread(u)
+      setLast(l)
+    } catch (e) { console.error('loadMeta failed', e) }
   }, [])
 
   useEffect(() => {
-    void reload()
-    void loadUnread()
+    void getSavedChat().catch((e) => console.error('getSavedChat failed', e)).then(() => reload())
+    void loadMeta()
     const channel = supabase
       .channel(`my-chats:${myId}`)
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'chat_members', filter: `user_id=eq.${myId}` },
-        () => { void reload(); void loadUnread() })
+        () => { void reload(); void loadMeta() })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
         const m = payload.new as Message
-        if (m.sender_id === myId) return
-        if (m.chat_id === selectedRef.current) void markRead(m.chat_id).then(loadUnread)
-        else void loadUnread()
+        if (m.sender_id !== myId) {
+          const isOpen = m.chat_id === selectedRef.current && !document.hidden
+          if (!isOpen && getFlag('sound') && !getMuted().includes(m.chat_id)) playBeep()
+          if (m.chat_id === selectedRef.current) { void markRead(m.chat_id).then(loadMeta); return }
+        }
+        void loadMeta()
       })
       .subscribe()
     return () => { void supabase.removeChannel(channel) }
-  }, [myId, reload, loadUnread])
+  }, [myId, reload, loadMeta])
 
   useEffect(() => {
-    if (selectedId) void markRead(selectedId).then(loadUnread).catch(() => undefined)
-  }, [selectedId, loadUnread])
+    if (selectedId) void markRead(selectedId).then(loadMeta).catch(() => undefined)
+  }, [selectedId, loadMeta])
 
-  return { chats, loading, unread, reload }
+  const sorted = useMemo(() => [...chats].sort((a, b) => {
+    if (a.kind === 'saved') return -1
+    if (b.kind === 'saved') return 1
+    return (last[b.id]?.created_at ?? '9999').localeCompare(last[a.id]?.created_at ?? '9999')
+  }), [chats, last])
+
+  return { chats: sorted, loading, unread, last, reload }
+}
+
+export function useOnline(myId: string, visible: boolean) {
+  const [online, setOnline] = useState<Set<string>>(new Set())
+  useEffect(() => {
+    const channel = supabase.channel('online', { config: { presence: { key: myId } } })
+    channel
+      .on('presence', { event: 'sync' }, () => setOnline(new Set(Object.keys(channel.presenceState()))))
+      .subscribe((status) => { if (status === 'SUBSCRIBED' && visible) void channel.track({ at: Date.now() }) })
+    return () => { void supabase.removeChannel(channel) }
+  }, [myId, visible])
+  return online
 }
 
 const rKey = (r: Reaction) => `${r.message_id}|${r.user_id}|${r.emoji}`
@@ -64,10 +91,12 @@ function mergeReactions(a: Reaction[], b: Reaction[]): Reaction[] {
   return [...map.values()]
 }
 
-export function useMessages(chatId: string, myId: string) {
+export function useMessages(chatId: string, myId: string, peerId: string | null) {
   const [messages, setMessages] = useState<Message[]>([])
   const [reactions, setReactions] = useState<Reaction[]>([])
   const [typing, setTyping] = useState(false)
+  const [pinId, setPinId] = useState<string | null>(null)
+  const [peerReadAt, setPeerReadAt] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const channelRef = useRef<RealtimeChannel | null>(null)
@@ -75,10 +104,12 @@ export function useMessages(chatId: string, myId: string) {
   const typingTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const add = useCallback((m: Message) => setMessages((prev) => mergeMessages(prev, [m])), [])
+  const patch = useCallback((m: Message) => setMessages((prev) => prev.map((x) => (x.id === m.id ? { ...x, ...m } : x))), [])
+  const remove = useCallback((id: string) => setMessages((prev) => prev.filter((x) => x.id !== id)), [])
 
   useEffect(() => {
     let active = true
-    setMessages([]); setReactions([]); setTyping(false); setLoading(true); setError(null)
+    setMessages([]); setReactions([]); setTyping(false); setPinId(null); setPeerReadAt(null); setLoading(true); setError(null)
 
     fetchMessages(chatId)
       .then(async (data) => {
@@ -89,12 +120,21 @@ export function useMessages(chatId: string, myId: string) {
       })
       .catch((e: Error) => { if (active) setError(e.message) })
       .finally(() => { if (active) setLoading(false) })
+    fetchPin(chatId).then((id) => { if (active) setPinId(id) }).catch(() => undefined)
+    if (peerId) fetchPeerRead(chatId, peerId).then((t) => { if (active) setPeerReadAt(t) }).catch(() => undefined)
 
     const channel = supabase
       .channel(`chat:${chatId}`)
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages', filter: `chat_id=eq.${chatId}` },
         (payload) => { setTyping(false); add(payload.new as Message) })
+      .on('postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'messages', filter: `chat_id=eq.${chatId}` },
+        (payload) => {
+          const m = payload.new as Message & { deleted_at: string | null }
+          if (m.deleted_at) remove(m.id)
+          else patch(m)
+        })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'reactions' },
         (payload) => setReactions((prev) => mergeReactions(prev, [payload.new as Reaction])))
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'reactions' }, (payload) => {
@@ -104,6 +144,17 @@ export function useMessages(chatId: string, myId: string) {
           setReactions((prev) => prev.filter((r) => rKey(r) !== key))
         }
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_pins' }, (payload) => {
+        const del = payload.eventType === 'DELETE'
+        const row = (del ? payload.old : payload.new) as { chat_id?: string; message_id?: string }
+        if (row.chat_id === chatId) setPinId(del ? null : (row.message_id ?? null))
+      })
+      .on('postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'chat_members', filter: `chat_id=eq.${chatId}` },
+        (payload) => {
+          const r = payload.new as { user_id?: string; last_read_at?: string }
+          if (peerId && r.user_id === peerId && r.last_read_at) setPeerReadAt(r.last_read_at)
+        })
       .on('broadcast', { event: 'typing' }, (msg) => {
         const uid = (msg.payload as { userId?: string } | undefined)?.userId
         if (!uid || uid === myId) return
@@ -120,7 +171,7 @@ export function useMessages(chatId: string, myId: string) {
       channelRef.current = null
       void supabase.removeChannel(channel)
     }
-  }, [chatId, myId, add])
+  }, [chatId, myId, peerId, add, patch, remove])
 
   const sendTyping = useCallback(() => {
     const now = Date.now()
@@ -143,5 +194,8 @@ export function useMessages(chatId: string, myId: string) {
     }
   }, [reactions, myId])
 
-  return { messages, reactions, typing, loading, error, add, sendTyping, toggleReaction }
+  return {
+    messages, reactions, typing, pinId, peerReadAt, loading, error,
+    add, patch, remove, setPinId, sendTyping, toggleReaction,
+  }
 }

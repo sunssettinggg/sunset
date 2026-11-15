@@ -6,7 +6,7 @@ import Avatar from '../chat/Avatar'
 
 interface Props { me: Profile; onClose: () => void; onSaved: (p: Profile) => void }
 
-const field = 'w-full rounded-xl bg-surface px-4 py-3 text-sm outline-none ring-1 ring-white/5 focus:ring-2 focus:ring-accent'
+const field = 'w-full rounded-xl bg-surface px-4 py-3 text-sm outline-none ring-1 ring-line focus:ring-2 focus:ring-accent'
 
 export default function ProfileModal({ me, onClose, onSaved }: Props) {
   const [displayName, setDisplayName] = useState(me.display_name)
@@ -53,7 +53,7 @@ export default function ProfileModal({ me, onClose, onSaved }: Props) {
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className="rounded-xl px-4 py-2 text-sm text-muted transition hover:text-text">Отмена</button>
           <button onClick={() => void save()} disabled={busy}
-            className="sunset-gradient flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-bg transition hover:brightness-110 disabled:opacity-60">
+            className="sunset-gradient flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-on-accent transition hover:brightness-110 disabled:opacity-60">
             {busy && <Loader2 size={14} className="animate-spin" />} Сохранить
           </button>
         </div>

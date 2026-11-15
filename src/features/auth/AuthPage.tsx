@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Sun, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 
 type Mode = 'login' | 'register'
@@ -16,7 +16,7 @@ function friendlyError(message: string): string {
 
 const inputClass =
   'w-full rounded-xl bg-surface px-4 py-3 text-sm text-text placeholder:text-muted outline-none ' +
-  'ring-1 ring-white/5 transition focus:ring-2 focus:ring-accent'
+  'ring-1 ring-line transition focus:ring-2 focus:ring-accent'
 
 export default function AuthPage() {
   const [mode, setMode] = useState<Mode>('login')
@@ -56,8 +56,6 @@ export default function AuthPage() {
 
   return (
     <div className="relative flex min-h-full items-center justify-center overflow-hidden p-6">
-      <div className="pointer-events-none absolute -top-40 -left-40 h-96 w-96 rounded-full bg-accent/20 blur-3xl" />
-      <div className="pointer-events-none absolute -right-40 -bottom-40 h-96 w-96 rounded-full bg-purple/25 blur-3xl" />
 
       <motion.div
         initial={{ opacity: 0, y: 16 }}
@@ -65,12 +63,7 @@ export default function AuthPage() {
         transition={{ duration: 0.4 }}
         className="glass relative w-full max-w-sm rounded-3xl p-8"
       >
-        <div className="mb-8 flex items-center gap-3">
-          <div className="sunset-gradient flex h-10 w-10 items-center justify-center rounded-xl">
-            <Sun size={22} className="text-bg" />
-          </div>
-          <span className="text-xl font-semibold tracking-[0.2em]">SUNSET</span>
-        </div>
+        <div className="mb-8 text-xl font-semibold tracking-[0.2em]">SUNSET</div>
 
         <h1 className="mb-1 text-lg font-medium">{mode === 'login' ? 'С возвращением' : 'Создать аккаунт'}</h1>
         <p className="mb-6 text-sm text-muted">
@@ -100,7 +93,7 @@ export default function AuthPage() {
 
           <button type="submit" disabled={busy}
             className="sunset-gradient flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold
-                       text-bg transition hover:brightness-110 active:scale-[0.98] disabled:opacity-60">
+                       text-on-accent transition hover:brightness-110 active:scale-[0.98] disabled:opacity-60">
             {busy && <Loader2 size={16} className="animate-spin" />}
             {mode === 'login' ? 'Войти' : 'Зарегистрироваться'}
           </button>
