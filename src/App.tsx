@@ -18,7 +18,6 @@ import { useChats, useOnline } from './features/chat/hooks'
 const PROFILE_SELECT = 'id, username, display_name, bio, avatar_url, created_at, showcase_number, showcase_handle'
 
 function Messenger({ userId }: { userId: string }) {
-  const { session } = useSession()
   const [me, setMe] = useState<Profile | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -87,7 +86,7 @@ function Messenger({ userId }: { userId: string }) {
       )}
       {profileOpen && <ProfileModal me={me} onClose={() => setProfileOpen(false)}
         onSaved={(p) => { setMe(p); setProfileOpen(false) }} />}
-      {settingsOpen && <SettingsModal me={me} email={session?.user.email ?? ''} theme={theme} background={background}
+      {settingsOpen && <SettingsModal me={me} theme={theme} background={background}
         flags={flags} mutedCount={muted.length} onSetTheme={changeTheme} onSetBackground={changeBackground}
         onSetFlag={changeFlag} onEditProfile={() => setProfileOpen(true)} onProfileChanged={loadMe}
         onSignOut={() => void supabase.auth.signOut()} onClose={() => setSettingsOpen(false)} />}

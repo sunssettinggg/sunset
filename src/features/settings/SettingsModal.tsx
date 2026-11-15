@@ -14,7 +14,6 @@ const TITLES: Record<Page, string> = {
 
 interface Props {
   me: Profile
-  email: string
   theme: Theme
   background: string | null
   flags: Record<FlagName, boolean>
@@ -110,7 +109,6 @@ export default function SettingsModal(p: Props) {
               </div>
             </div>
             <div className="divide-y divide-line rounded-xl bg-surface">
-              <Info label="Почта" value={p.email || '—'} />
               <Info label="О себе" value={p.me.bio || 'Не указано'} />
               {p.me.showcase_number && <Info label="Номер" value={p.me.showcase_number} />}
               {p.me.showcase_handle && <Info label="Коллекционный юзернейм" value={`@${p.me.showcase_handle}`} />}

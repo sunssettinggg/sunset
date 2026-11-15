@@ -47,6 +47,16 @@ export default function ProfileModal({ me, onClose, onSaved }: Props) {
           </button>
         </div>
         <div className="text-xs text-muted">@{me.username}</div>
+        {(me.showcase_number || me.showcase_handle) && (
+          <div className="divide-y divide-line rounded-xl bg-surface">
+            {me.showcase_number && (
+              <div className="px-4 py-3"><div className="text-xs text-muted">Номер</div><div className="text-sm">{me.showcase_number}</div></div>
+            )}
+            {me.showcase_handle && (
+              <div className="px-4 py-3"><div className="text-xs text-muted">Коллекционный юзернейм</div><div className="text-sm">@{me.showcase_handle}</div></div>
+            )}
+          </div>
+        )}
         <input className={field} value={displayName} maxLength={50} onChange={(e) => setDisplayName(e.target.value)} placeholder="Имя" />
         <textarea className={`${field} h-24 resize-none`} value={bio} maxLength={300} onChange={(e) => setBio(e.target.value)} placeholder="О себе" />
         {error && <p className="text-sm text-pink">{error}</p>}
