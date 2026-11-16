@@ -1,16 +1,15 @@
 import { useRef, useState, type ChangeEvent } from 'react'
-import { ArrowLeft, Bell, ImagePlus, Lock, LogOut, MessageCircle, Sparkles, Star, Trash2, User, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, Bell, ImagePlus, Lock, LogOut, MessageCircle, Sparkles, Trash2, User, type LucideIcon } from 'lucide-react'
 import { fileToBackground, type FlagName, type Theme } from '../../lib/prefs'
 import type { Profile } from '../../lib/types'
 import Avatar from '../chat/Avatar'
 import UsernameLine from '../chat/UsernameLine'
-import MarketPage from './MarketPage'
 
-type Page = 'account' | 'notif' | 'privacy' | 'chats' | 'motion' | 'market'
+type Page = 'account' | 'notif' | 'privacy' | 'chats' | 'motion'
 
 const TITLES: Record<Page, string> = {
   account: 'Мой аккаунт', notif: 'Уведомления и звуки', privacy: 'Конфиденциальность',
-  chats: 'Настройки чатов', motion: 'Анимация', market: 'Маркет',
+  chats: 'Настройки чатов', motion: 'Анимация',
 }
 
 interface Props {
@@ -23,7 +22,6 @@ interface Props {
   onSetBackground: (value: string | null) => boolean
   onSetFlag: (name: FlagName, value: boolean) => void
   onEditProfile: () => void
-  onProfileChanged: () => void
   onSignOut: () => void
   onClose: () => void
 }
@@ -94,7 +92,6 @@ export default function SettingsModal(p: Props) {
             <MenuRow Icon={Lock} label="Конфиденциальность" onClick={() => setPage('privacy')} />
             <MenuRow Icon={MessageCircle} label="Настройки чатов" onClick={() => setPage('chats')} />
             <MenuRow Icon={Sparkles} label="Анимация" onClick={() => setPage('motion')} />
-            <MenuRow Icon={Star} label="Маркет" value="Звёзды" onClick={() => setPage('market')} />
             <div className="my-2 border-t border-line" />
             <MenuRow Icon={LogOut} label="Выйти из аккаунта" danger onClick={p.onSignOut} />
           </div>
@@ -170,8 +167,6 @@ export default function SettingsModal(p: Props) {
             </div>
           </div>
         )}
-
-        {page === 'market' && <MarketPage me={p.me} onProfileChanged={p.onProfileChanged} />}
       </div>
     </div>
   )

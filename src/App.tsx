@@ -7,7 +7,8 @@ import {
 } from './lib/prefs'
 import { useSession } from './features/auth/session'
 import AuthPage from './features/auth/AuthPage'
-import NavRail from './features/chat/NavRail'
+import MarketPage from './features/market/MarketPage'
+import NavRail, { type View } from './features/chat/NavRail'
 import Sidebar from './features/chat/Sidebar'
 import ChatView from './features/chat/ChatView'
 import RightPanel from './features/chat/RightPanel'
@@ -28,6 +29,7 @@ function Messenger({ userId }: { userId: string }) {
   const [profileOpen, setProfileOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [newChatOpen, setNewChatOpen] = useState(false)
+  const [view, setView] = useState<View>('chats')
   const [theme, setTheme] = useState<Theme>(loadTheme)
   const [background, setBackground] = useState<string | null>(loadBackground)
   const [muted, setMutedState] = useState<string[]>(getMuted)
@@ -77,15 +79,17 @@ function Messenger({ userId }: { userId: string }) {
 
   return (
     <div className="flex h-full">
-      <div className={selected ? 'hidden md:flex' : 'flex w-full md:w-auto'}>
-        <NavRail me={me} theme={theme} totalUnread={totalUnread}
+      <div className={view === 'market' ? 'flex' : selected ? 'hidden md:flex' : 'flex w-full md:w-auto'}>
+        <NavRail me={me} theme={theme} view={view} totalUnread={totalUnread} onChangeView={setView}
           onToggleTheme={() => changeTheme(theme === 'dark' ? 'light' : 'dark')}
           onOpenProfile={() => setProfileOpen(true)} onOpenSettings={() => setSettingsOpen(true)} />
-        <Sidebar myId={me.id} chats={chats} loading={loading} selectedId={selectedId} unread={unread}
+        {view === 'chats' && <Sidebar myId={me.id} chats={chats} loading={loading} selectedId={selectedId} unread={unread}
           last={last} online={online} muted={muted} onSelect={setSelectedId} onChatCreated={reload}
-          onNewChat={() => setNewChatOpen(true)} />
+          onNewChat={() => setNewChatOpen(true)} />}
       </div>
-      {selected ? (
+      {view === 'market' ? (
+        <MarketPage me={me} onProfileChanged={loadMe} />
+      ) : selected ? (
         <>
           <ChatView key={selected.id} chat={selected} chats={chats} myId={me.id} myName={me.display_name}
             background={background} online={selectedOnline}
@@ -107,7 +111,7 @@ function Messenger({ userId }: { userId: string }) {
         onSaved={(p) => { setMe(p); setProfileOpen(false) }} />}
       {settingsOpen && <SettingsModal me={me} theme={theme} background={background}
         flags={flags} mutedCount={muted.length} onSetTheme={changeTheme} onSetBackground={changeBackground}
-        onSetFlag={changeFlag} onEditProfile={() => setProfileOpen(true)} onProfileChanged={loadMe}
+        onSetFlag={changeFlag} onEditProfile={() => setProfileOpen(true)}
         onSignOut={() => void supabase.auth.signOut()} onClose={() => setSettingsOpen(false)} />}
       {newChatOpen && <NewChatModal onClose={() => setNewChatOpen(false)}
         onDone={(id) => { setNewChatOpen(false); void reload().then(() => setSelectedId(id)) }} />}
