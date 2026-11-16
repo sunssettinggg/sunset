@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Star } from 'lucide-react'
 import type { MarketItem, Profile } from '../../lib/types'
 import GiftArt from './GiftArt'
-import { buyGift, listGifts, myGifts, type Gift, type OwnedGift } from './gifts'
+import { buyGift, listGifts, myGifts, setGiftShown, type Gift, type OwnedGift } from './gifts'
 import { applyItem, buyItem, getStars, listItem, listMarket, myItems, unapplyItem, unlistItem } from '../chat/api'
 
 interface Props { me: Profile; onProfileChanged: () => void }
@@ -14,6 +14,7 @@ function friendly(msg: string): string {
   if (msg.includes('bad price')) return 'Цена от 1 до 1 000 000 000.'
   if (msg.includes('unlist first')) return 'Сначала снимите лот с продажи.'
   if (msg.includes('handle limit')) return 'В профиле не больше 10 юзернеймов.'
+  if (msg.includes('not your gift')) return 'Этого подарка у вас уже нет.'
   if (msg.includes('username in use')) return 'Этот юзернейм уже занят обычным аккаунтом.'
   return msg
 }
@@ -39,7 +40,7 @@ export default function MarketPage({ me, onProfileChanged }: Props) {
 
   const refresh = useCallback(async () => {
     try {
-      const [s, sh, mi, gf, og] = await Promise.all([getStars(), listMarket(), myItems(me.id), listGifts(), myGifts()])
+      const [s, sh, mi, gf, og] = await Promise.all([getStars(), listMarket(), myItems(me.id), listGifts(), myGifts(me.id)])
       setStars(s); setShop(sh); setMine(mi); setGifts(gf); setOwnedGifts(og)
     } catch (e) { setError(friendly((e as Error).message)) }
   }, [me.id])
@@ -90,11 +91,11 @@ export default function MarketPage({ me, onProfileChanged }: Props) {
         {tab === 'mine' && kind === 'username' && <p className="text-sm text-muted">В профиле: {me.handles.length} из 10</p>}
 
         {tab === 'shop' && shopItems.length === 0 && <p className="text-sm text-muted">Пока ничего не продаётся.</p>}
-        {tab === 'mine' && kind === 'gift' && ownedGifts.length === 0 && <p className="text-sm text-muted">Подарков пока нет. Загляни в Магазин.</p>}
+        {tab === 'mine' && kind === 'gift' && ownedGifts.length === 0 && <p className="text-sm text-muted">Подарков пока нет. Загляни в Магазин, а друзьям их можно дарить из окна информации о чате.</p>}
         {tab === 'mine' && kind !== 'gift' && myList.length === 0 && <p className="text-sm text-muted">Здесь появятся купленные предметы.</p>}
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {tab === 'store' && gifts.map((g) => (
+          {tab === 'store' && gifts.filter((g) => g.active).map((g) => (
             <div key={g.id} className={card}>
               <GiftArt gift={g} />
               <div>
@@ -115,8 +116,20 @@ export default function MarketPage({ me, onProfileChanged }: Props) {
             return (
               <div key={og.id} className={card}>
                 {g && <GiftArt gift={g} />}
-                <div className="font-medium">{g?.title ?? 'Подарок'}</div>
-                <div className="text-xs text-muted">Получен {new Date(og.created_at).toLocaleDateString('ru-RU')}</div>
+                <div>
+                  <div className="font-medium">{g?.title ?? 'Подарок'}</div>
+                  <div className="text-xs text-muted">
+                    {og.sender ? `От ${og.sender.display_name} · ` : ''}{new Date(og.created_at).toLocaleDateString('ru-RU')}
+                  </div>
+                  {og.note && <div className="mt-1 text-xs">{og.note}</div>}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {og.shown && <span className="text-xs text-accent">в профиле</span>}
+                  <div className="flex-1" />
+                  <button className={smallBtn} disabled={busy} onClick={() => void run(() => setGiftShown(og.id, !og.shown))}>
+                    {og.shown ? 'Скрыть из профиля' : 'В профиль'}
+                  </button>
+                </div>
               </div>
             )
           })}

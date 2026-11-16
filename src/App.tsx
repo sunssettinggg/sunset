@@ -105,7 +105,7 @@ function Messenger({ userId }: { userId: string }) {
               onLeft={() => { setSelectedId(null); setShowInfo(false) }} onClose={() => setShowInfo(false)} />
           )}
           {showInfo && selected.kind === 'direct' && (
-            <RightPanel chat={selected} muted={muted.includes(selected.id)} online={selectedOnline}
+            <RightPanel chat={selected} myId={me.id} muted={muted.includes(selected.id)} online={selectedOnline}
               onToggleMute={() => toggleMute(selected.id)} onOpenChannel={openChannel} onClose={() => setShowInfo(false)} />
           )}
         </>

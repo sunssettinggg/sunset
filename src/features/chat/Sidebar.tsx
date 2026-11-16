@@ -92,6 +92,9 @@ export default function Sidebar({ myId, chats, loading, selectedId, unread, last
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium">{p.display_name}</div>
                     <div className="text-xs"><UsernameLine muted username={p.username} handles={p.handles} /></div>
+                    {p.showcase_number && query.replace(/\D/g, '').length >= 3 && p.showcase_number.replace(/\D/g, '').includes(query.replace(/\D/g, '')) && (
+                      <div className="text-xs text-accent">{p.showcase_number}</div>
+                    )}
                   </div>
                 </button>
               ))}
