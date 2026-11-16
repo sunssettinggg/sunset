@@ -6,6 +6,7 @@ import { createDirectChat, joinChat, searchProfiles, searchPublicChats } from '.
 import Avatar from './Avatar'
 import ChatAvatar from './ChatAvatar'
 import UsernameLine from './UsernameLine'
+import VerifiedBadge from '../verified/VerifiedBadge'
 
 interface Props {
   myId: string
@@ -124,7 +125,7 @@ export default function Sidebar({ myId, chats, loading, selectedId, unread, last
                 <ChatAvatar chat={c} online={c.otherId !== null && online.has(c.otherId)} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="flex-1 truncate text-sm font-medium">{c.name}</span>
+                    <span className="flex min-w-0 flex-1 items-center gap-1 text-sm font-medium"><span className="truncate">{c.name}</span>{c.verified && <VerifiedBadge />}</span>
                     {isMuted && <BellOff size={12} className="text-muted" />}
                     {l && <span className="text-xs text-muted">{formatTime(l.created_at)}</span>}
                   </div>

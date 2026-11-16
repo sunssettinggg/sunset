@@ -1,7 +1,7 @@
 import { supabase } from '../../lib/supabase'
 import type { ChatItem, LastMessage, MarketItem, Member, Message, Profile, ProfileChannel, PublicChat, Reaction, Role } from '../../lib/types'
 
-const PROFILE_COLS = 'id, username, display_name, bio, avatar_url, created_at, showcase_number, handles, channel_id'
+const PROFILE_COLS = 'id, username, display_name, bio, avatar_url, created_at, showcase_number, handles, channel_id, verified'
 const MESSAGE_COLS = 'id, chat_id, sender_id, body, reply_to, created_at, edited_at, forwarded_from, attachment_path, attachment_type'
 
 export async function searchProfiles(query: string): Promise<Profile[]> {
@@ -61,6 +61,7 @@ export async function listChats(myId: string): Promise<ChatItem[]> {
       avatarUrl: direct ? (other?.avatar_url ?? null) : c.avatar_url,
       bio: direct ? (other?.bio ?? null) : null,
       otherId: direct ? (other?.id ?? null) : null,
+      verified: direct ? (other?.verified ?? false) : false,
       joinedAt: direct ? (other?.created_at ?? null) : null,
       number: direct ? (other?.showcase_number ?? null) : null,
       handles: direct ? (other?.handles ?? []) : [],

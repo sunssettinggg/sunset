@@ -5,6 +5,7 @@ import { profileChannel } from './api'
 import ChannelCard from './ChannelCard'
 import ChatAvatar from './ChatAvatar'
 import UsernameLine from './UsernameLine'
+import VerifiedBadge from '../verified/VerifiedBadge'
 
 interface Props {
   chat: ChatItem
@@ -52,7 +53,7 @@ export default function RightPanel({ chat, online, muted, onToggleMute, onOpenCh
       </button>
       <div className="flex flex-col items-center gap-2">
         <ChatAvatar chat={chat} size={96} online={online} />
-        <div className="text-lg font-semibold">{chat.name}</div>
+        <div className="flex items-center justify-center gap-1.5 text-lg font-semibold"><span>{chat.name}</span>{chat.verified && <VerifiedBadge size={18} />}</div>
         <div className={`text-sm ${online ? 'text-accent' : 'text-muted'}`}>{online ? 'в сети' : 'не в сети'}</div>
       </div>
 
@@ -80,6 +81,13 @@ export default function RightPanel({ chat, online, muted, onToggleMute, onOpenCh
           <Row label="В SUNSET с" value={new Date(chat.joinedAt).toLocaleDateString([], { day: 'numeric', month: 'long', year: 'numeric' })} />
         )}
       </div>
+
+      {chat.verified && (
+        <div className="flex items-start gap-2 rounded-xl bg-surface p-4 text-sm text-muted">
+          <VerifiedBadge size={16} className="mt-0.5" />
+          <span>Этот аккаунт подтверждён как официальный представителями Sunset.</span>
+        </div>
+      )}
 
       {channel && (
         <div>

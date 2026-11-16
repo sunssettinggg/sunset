@@ -2,6 +2,7 @@ export type ChatKind = 'direct' | 'group' | 'channel' | 'saved'
 export type Role = 'owner' | 'admin' | 'member'
 
 export interface Profile {
+  verified?: boolean
   id: string
   username: string
   display_name: string
@@ -40,6 +41,7 @@ export interface LastMessage {
 }
 
 export interface ChatItem {
+  verified?: boolean
   id: string
   kind: ChatKind
   role: Role
