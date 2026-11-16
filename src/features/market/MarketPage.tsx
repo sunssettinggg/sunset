@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Star } from 'lucide-react'
 import type { MarketItem, Profile } from '../../lib/types'
+import GiftArt from './GiftArt'
 import { buyGift, listGifts, myGifts, type Gift, type OwnedGift } from './gifts'
 import { applyItem, buyItem, getStars, listItem, listMarket, myItems, unapplyItem, unlistItem } from '../chat/api'
 
@@ -95,7 +96,7 @@ export default function MarketPage({ me, onProfileChanged }: Props) {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {tab === 'store' && gifts.map((g) => (
             <div key={g.id} className={card}>
-              <img src={g.image_url} alt={g.title} className="aspect-square w-full rounded-xl object-cover" />
+              <GiftArt gift={g} />
               <div>
                 <div className="font-medium">{g.title}</div>
                 <div className="text-xs text-muted">{g.description}</div>
@@ -113,7 +114,7 @@ export default function MarketPage({ me, onProfileChanged }: Props) {
             const g = giftById.get(og.gift_id)
             return (
               <div key={og.id} className={card}>
-                {g && <img src={g.image_url} alt={g.title} className="aspect-square w-full rounded-xl object-cover" />}
+                {g && <GiftArt gift={g} />}
                 <div className="font-medium">{g?.title ?? 'Подарок'}</div>
                 <div className="text-xs text-muted">Получен {new Date(og.created_at).toLocaleDateString('ru-RU')}</div>
               </div>
