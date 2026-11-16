@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ClipboardEvent, type FormEvent, type MouseEvent, type TouchEvent } from 'react'
-import { ArrowLeft, Check, CheckCheck, Copy, Forward, ImagePlus, PanelRight, Paperclip, Pencil, Pin, Reply, SendHorizontal, Trash2, X } from 'lucide-react'
+import { ArrowLeft, Check, CheckCheck, Copy, Forward, ImagePlus, Mic, PanelRight, Paperclip, Pencil, Pin, Reply, SendHorizontal, Trash2, X } from 'lucide-react'
 import type { ChatItem, Message } from '../../lib/types'
-import { clearPin, copyChatImage, deleteMessage, sendMessage, setPin, updateMessage, uploadChatImage } from './api'
+import { clearPin, copyChatImage, deleteMessage, sendMessage, setPin, updateMessage, uploadChatImage, uploadChatVoice } from './api'
 import { useImageUrls, useMessages, useProfileNames } from './hooks'
 import ChatAvatar from './ChatAvatar'
 import ForwardModal from './ForwardModal'
 import SendImageModal from './SendImageModal'
 import MessageMenu, { type MenuAction } from './MessageMenu'
+import VoiceMessage from './VoiceMessage'
 
 const EMOJIS = ['👍', '❤️', '😂', '🔥', '😮', '😢']
 
@@ -52,6 +53,13 @@ export default function ChatView({ chat, chats, myId, myName, online, background
   const [viewer, setViewer] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [pending, setPending] = useState<File[] | null>(null)
+  const [recording, setRecording] = useState(false)
+  const [recSecs, setRecSecs] = useState(0)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const mediaStreamRef = useRef<MediaStream | null>(null)
+  const chunksRef = useRef<Blob[]>([])
+  const recTimerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined)
+  const recStartRef = useRef(0)
   const urls = useImageUrls(messages)
   const names = useProfileNames(messages)
   const saved = chat.kind === 'saved'
@@ -59,6 +67,12 @@ export default function ChatView({ chat, chats, myId, myName, online, background
   const canPost = chat.kind !== 'channel' || chat.role !== 'member'
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages.length])
+
+  useEffect(() => () => {
+    clearInterval(recTimerRef.current)
+    mediaRecorderRef.current?.state === 'recording' && mediaRecorderRef.current.stop()
+    mediaStreamRef.current?.getTracks().forEach((t) => t.stop())
+  }, [])
 
   const byMessage = useMemo(() => {
     const map = new Map<string, Map<string, string[]>>()
@@ -125,7 +139,12 @@ export default function ChatView({ chat, chats, myId, myName, online, background
     exitSelect()
     for (const m of list) {
       try {
-        const att = m.attachment_path ? { path: await copyChatImage(m.attachment_path, target.id), type: (m.attachment_type === 'file' ? 'file' : 'image') as 'image' | 'file' } : null
+        const att = m.attachment_path
+          ? {
+              path: await copyChatImage(m.attachment_path, target.id),
+              type: (m.attachment_type === 'file' ? 'file' : m.attachment_type === 'voice' ? 'voice' : 'image') as 'image' | 'file' | 'voice',
+            }
+          : null
         await sendMessage(target.id, myId, m.body, null, m.forwarded_from ?? senderName(m), att)
       } catch (e) { fail(e) }
     }
@@ -174,6 +193,108 @@ export default function ChatView({ chat, chats, myId, myName, online, background
         add(await sendMessage(chat.id, myId, first ? caption.trim() || null : null, first ? (reply?.id ?? null) : null, null,
           { path, type: asFile ? 'file' : 'image' }))
       }
+    } catch (err) { fail(err) } finally { setUploading(false) }
+  }
+
+  function pickMime(): string {
+    if (typeof MediaRecorder === 'undefined') return 'audio/webm'
+    if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) return 'audio/webm;codecs=opus'
+    if (MediaRecorder.isTypeSupported('audio/webm')) return 'audio/webm'
+    if (MediaRecorder.isTypeSupported('audio/mp4')) return 'audio/mp4'
+    if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) return 'audio/ogg;codecs=opus'
+    return ''
+  }
+
+  function stopTracks() {
+    mediaStreamRef.current?.getTracks().forEach((t) => t.stop())
+    mediaStreamRef.current = null
+  }
+
+  function clearRecTimer() {
+    clearInterval(recTimerRef.current)
+    recTimerRef.current = undefined
+  }
+
+  async function startRecording() {
+    if (recording || uploading || editing || !canPost) return
+    setSendError(null)
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setSendError('Браузер не поддерживает запись звука.')
+      return
+    }
+    const mime = pickMime()
+    if (!mime && typeof MediaRecorder === 'undefined') {
+      setSendError('MediaRecorder недоступен в этом браузере.')
+      return
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      mediaStreamRef.current = stream
+      const rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream)
+      chunksRef.current = []
+      rec.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data) }
+      rec.onerror = () => {
+        setSendError('Ошибка записи.')
+        setRecording(false)
+        clearRecTimer()
+        stopTracks()
+      }
+      mediaRecorderRef.current = rec
+      rec.start(250)
+      recStartRef.current = Date.now()
+      setRecSecs(0)
+      setRecording(true)
+      recTimerRef.current = setInterval(() => {
+        const s = Math.floor((Date.now() - recStartRef.current) / 1000)
+        setRecSecs(s)
+        if (s >= 300) void finishRecording(true)
+      }, 250)
+    } catch {
+      stopTracks()
+      setSendError('Нет доступа к микрофону.')
+    }
+  }
+
+  function cancelRecording() {
+    const rec = mediaRecorderRef.current
+    if (rec && rec.state !== 'inactive') {
+      rec.ondataavailable = null
+      rec.onstop = () => { stopTracks(); chunksRef.current = [] }
+      try { rec.stop() } catch { /* ignore */ }
+    } else stopTracks()
+    mediaRecorderRef.current = null
+    clearRecTimer()
+    setRecording(false)
+    setRecSecs(0)
+  }
+
+  async function finishRecording(send: boolean) {
+    const rec = mediaRecorderRef.current
+    if (!rec || rec.state === 'inactive') {
+      cancelRecording()
+      return
+    }
+    clearRecTimer()
+    setRecording(false)
+    await new Promise<void>((resolve) => {
+      rec.onstop = () => resolve()
+      try { rec.stop() } catch { resolve() }
+    })
+    stopTracks()
+    mediaRecorderRef.current = null
+    const mime = rec.mimeType || 'audio/webm'
+    const blob = new Blob(chunksRef.current, { type: mime })
+    chunksRef.current = []
+    const elapsed = Math.floor((Date.now() - recStartRef.current) / 1000)
+    setRecSecs(0)
+    if (!send || elapsed < 1) return
+    setUploading(true)
+    setSendError(null)
+    const reply = replyTo
+    setReplyTo(null)
+    try {
+      const path = await uploadChatVoice(chat.id, blob, mime)
+      add(await sendMessage(chat.id, myId, null, reply?.id ?? null, null, { path, type: 'voice' }))
     } catch (err) { fail(err) } finally { setUploading(false) }
   }
 
@@ -229,7 +350,10 @@ export default function ChatView({ chat, chats, myId, myName, online, background
           <Pin size={14} className="shrink-0 text-accent" />
           <button className="min-w-0 flex-1 truncate text-left"
             onClick={() => document.getElementById(`msg-${pinId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}>
-            <span className="text-xs text-accent">Закреплено · </span>{pinned?.body ?? 'сообщение'}
+            <span className="text-xs text-accent">Закреплено · </span>
+            {pinned?.body
+              ?? (pinned?.attachment_type === 'voice' ? '🎤 Голосовое'
+                : pinned?.attachment_path ? '📷 Фото' : 'сообщение')}
           </button>
           <button title="Открепить" className="text-muted hover:text-text"
             onClick={() => void clearPin(chat.id).then(() => setPinId(null)).catch(fail)}><X size={14} /></button>
@@ -270,25 +394,32 @@ export default function ChatView({ chat, chats, myId, myName, online, background
                     {m.reply_to && (
                       <div className={`mb-1 truncate border-l-2 pl-2 text-xs ${
                         mine ? 'border-on-accent/50 text-on-accent/80' : 'border-accent text-muted'}`}>
-                        {original?.body ?? (original?.attachment_path ? '📷 Фото' : 'Сообщение')}
+                        {original?.body
+                          ?? (original?.attachment_type === 'voice' ? '🎤 Голосовое'
+                            : original?.attachment_path ? '📷 Фото' : 'Сообщение')}
                       </div>
                     )}
                     {m.attachment_path && (
                       !urls[m.attachment_path]
-                        ? <div className="mb-1 h-40 w-56 animate-pulse rounded-xl bg-bg/30" />
-                        : m.attachment_type === 'file'
-                          ? (
-                            <a href={urls[m.attachment_path]} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}
-                              className="mb-1 flex items-center gap-3 rounded-xl bg-bg/20 p-2">
-                              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-bg/30"><Paperclip size={18} /></span>
-                              <span className="min-w-0">
-                                <span className="block truncate text-sm">{fileName(m.attachment_path)}</span>
-                                <span className="block text-xs opacity-70">Скачать</span>
-                              </span>
-                            </a>
-                          )
-                          : <img src={urls[m.attachment_path]} alt="" className="mb-1 max-h-72 max-w-full cursor-zoom-in rounded-xl object-cover"
-                              onClick={(e) => { e.stopPropagation(); if (!selectMode) setViewer(urls[m.attachment_path!]) }} />
+                        ? (
+                          <div className={`mb-1 animate-pulse rounded-xl bg-bg/30 ${
+                            m.attachment_type === 'voice' ? 'h-10 w-52' : 'h-40 w-56'}`} />
+                        )
+                        : m.attachment_type === 'voice'
+                          ? <VoiceMessage src={urls[m.attachment_path]} mine={mine} />
+                          : m.attachment_type === 'file'
+                            ? (
+                              <a href={urls[m.attachment_path]} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}
+                                className="mb-1 flex items-center gap-3 rounded-xl bg-bg/20 p-2">
+                                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-bg/30"><Paperclip size={18} /></span>
+                                <span className="min-w-0">
+                                  <span className="block truncate text-sm">{fileName(m.attachment_path)}</span>
+                                  <span className="block text-xs opacity-70">Скачать</span>
+                                </span>
+                              </a>
+                            )
+                            : <img src={urls[m.attachment_path]} alt="" className="mb-1 max-h-72 max-w-full cursor-zoom-in rounded-xl object-cover"
+                                onClick={(e) => { e.stopPropagation(); if (!selectMode) setViewer(urls[m.attachment_path!]) }} />
                     )}
                     {m.body && <p className="break-words whitespace-pre-wrap">{m.body}</p>}
                     <div className={`mt-1 flex items-center justify-end gap-1 text-[10px] ${mine ? 'text-on-accent/70' : 'text-muted'}`}>
@@ -320,27 +451,60 @@ export default function ChatView({ chat, chats, myId, myName, online, background
         <div className="border-t border-line bg-bg2 p-4 text-center text-sm text-muted">Писать в канал могут только администраторы</div>
       ) : (
       <form onSubmit={onSubmit} className="border-t border-line bg-bg2 p-3">
-        {(replyTo || editing) && (
+        {(replyTo || editing) && !recording && (
           <div className="mb-2 flex items-center gap-2 rounded-xl bg-surface px-3 py-2 text-xs">
             {editing ? <Pencil size={14} className="text-accent" /> : <Reply size={14} className="text-accent" />}
-            <span className="flex-1 truncate text-muted">{editing ? `Изменение: ${editing.body ?? ''}` : replyTo?.body}</span>
+            <span className="flex-1 truncate text-muted">
+              {editing
+                ? `Изменение: ${editing.body ?? ''}`
+                : (replyTo?.body
+                  ?? (replyTo?.attachment_type === 'voice' ? '🎤 Голосовое'
+                    : replyTo?.attachment_path ? '📷 Фото' : 'Сообщение'))}
+            </span>
             <button type="button" className="text-muted hover:text-text"
               onClick={() => { setReplyTo(null); if (editing) { setEditing(null); setText('') } }}><X size={14} /></button>
           </div>
         )}
         {sendError && <p className="mb-2 text-xs text-pink">Ошибка: {sendError}</p>}
-        <div className="flex items-center gap-2 rounded-2xl bg-surface px-4 py-1.5">
-          <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple className="hidden" onChange={onPickImages} />
-          <button type="button" title="Отправить фото" disabled={uploading || !!editing} onClick={() => fileRef.current?.click()}
-            className="rounded-xl p-2 text-muted transition hover:text-text disabled:opacity-40"><ImagePlus size={20} /></button>
-          <input value={text} maxLength={4000} placeholder="Сообщение" onPaste={onPaste}
-            onChange={(e) => { setText(e.target.value); if (e.target.value && !saved && !editing) sendTyping() }}
-            className="flex-1 bg-transparent py-2 text-sm outline-none placeholder:text-muted" />
-          <button type="submit" disabled={!text.trim()} title={editing ? 'Сохранить' : 'Отправить'}
-            className="rounded-xl p-2 text-accent transition hover:bg-bg2 disabled:opacity-40">
-            {editing ? <Check size={20} /> : <SendHorizontal size={20} />}
-          </button>
-        </div>
+        {recording ? (
+          <div className="flex items-center gap-2 rounded-2xl bg-surface px-4 py-1.5">
+            <span className="relative flex h-3 w-3">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-pink opacity-60" />
+              <span className="relative inline-flex h-3 w-3 rounded-full bg-pink" />
+            </span>
+            <span className="flex-1 text-sm tabular-nums text-pink">
+              {Math.floor(recSecs / 60)}:{(recSecs % 60).toString().padStart(2, '0')}
+            </span>
+            <button type="button" title="Отменить" onClick={cancelRecording}
+              className="rounded-xl p-2 text-muted transition hover:text-text"><Trash2 size={18} /></button>
+            <button type="button" title="Отправить" disabled={uploading || recSecs < 1}
+              onClick={() => void finishRecording(true)}
+              className="rounded-xl p-2 text-accent transition hover:bg-bg2 disabled:opacity-40">
+              <SendHorizontal size={20} />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 rounded-2xl bg-surface px-4 py-1.5">
+            <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple className="hidden" onChange={onPickImages} />
+            <button type="button" title="Отправить фото" disabled={uploading || !!editing} onClick={() => fileRef.current?.click()}
+              className="rounded-xl p-2 text-muted transition hover:text-text disabled:opacity-40"><ImagePlus size={20} /></button>
+            <input value={text} maxLength={4000} placeholder="Сообщение" onPaste={onPaste}
+              onChange={(e) => { setText(e.target.value); if (e.target.value && !saved && !editing) sendTyping() }}
+              className="flex-1 bg-transparent py-2 text-sm outline-none placeholder:text-muted" />
+            {text.trim() || editing ? (
+              <button type="submit" disabled={!text.trim()} title={editing ? 'Сохранить' : 'Отправить'}
+                className="rounded-xl p-2 text-accent transition hover:bg-bg2 disabled:opacity-40">
+                {editing ? <Check size={20} /> : <SendHorizontal size={20} />}
+              </button>
+            ) : (
+              <button type="button" title="Голосовое сообщение" disabled={uploading}
+                onClick={() => void startRecording()}
+                className="rounded-xl p-2 text-accent transition hover:bg-bg2 disabled:opacity-40">
+                <Mic size={20} />
+              </button>
+            )}
+          </div>
+        )}
       </form>
       )}
 

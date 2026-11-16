@@ -130,7 +130,14 @@ export default function Sidebar({ myId, chats, loading, selectedId, unread, last
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="flex-1 truncate text-xs text-muted">
-                      {l ? `${l.sender_id === myId && c.kind !== 'saved' ? 'Вы: ' : ''}${l.body ?? '📷 Фото'}` : 'Сообщений пока нет'}
+                      {l
+                        ? `${l.sender_id === myId && c.kind !== 'saved' ? 'Вы: ' : ''}${
+                            l.body
+                              ?? (l.attachment_type === 'voice' ? '🎤 Голосовое'
+                                : l.attachment_type === 'file' ? '📎 Файл'
+                                  : '📷 Фото')
+                          }`
+                        : 'Сообщений пока нет'}
                     </span>
                     {count > 0 && (
                       <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${

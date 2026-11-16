@@ -81,7 +81,7 @@ export async function fetchMessages(chatId: string): Promise<Message[]> {
 
 export async function sendMessage(
   chatId: string, senderId: string, body: string | null, replyTo: string | null, forwardedFrom: string | null = null,
-  attachment: { path: string; type: 'image' | 'file' } | null = null,
+  attachment: { path: string; type: 'image' | 'file' | 'voice' } | null = null,
 ): Promise<Message> {
   const { data, error } = await supabase
     .from('messages').insert({ chat_id: chatId, sender_id: senderId, body, reply_to: replyTo, forwarded_from: forwardedFrom,
@@ -152,7 +152,12 @@ export async function lastMessages(): Promise<Record<string, LastMessage>> {
   const { data, error } = await supabase.rpc('last_messages')
   if (error) throw error
   const rows = (data ?? []) as (LastMessage & { chat_id: string })[]
-  return Object.fromEntries(rows.map((r) => [r.chat_id, { body: r.body, created_at: r.created_at, sender_id: r.sender_id }]))
+  return Object.fromEntries(rows.map((r) => [r.chat_id, {
+    body: r.body,
+    created_at: r.created_at,
+    sender_id: r.sender_id,
+    attachment_type: r.attachment_type ?? null,
+  }]))
 }
 
 export async function updateMessage(id: string, body: string): Promise<void> {
@@ -306,6 +311,31 @@ export async function uploadChatImage(chatId: string, file: File, asFile = false
   const id = crypto.randomUUID()
   const path = asFile ? `${chatId}/${id}__${safeName(file.name)}` : `${chatId}/${id}.${gif ? 'gif' : 'jpg'}`
   const { error } = await supabase.storage.from('attachments').upload(path, body, { contentType: original ? file.type : 'image/jpeg' })
+  if (error) throw error
+  return path
+}
+
+const VOICE_TYPES: Record<string, string> = {
+  'audio/webm': 'webm',
+  'audio/webm;codecs=opus': 'webm',
+  'audio/ogg': 'ogg',
+  'audio/ogg;codecs=opus': 'ogg',
+  'audio/mp4': 'm4a',
+  'audio/mpeg': 'mp3',
+  'audio/wav': 'wav',
+}
+
+export async function uploadChatVoice(chatId: string, blob: Blob, mime = blob.type): Promise<string> {
+  const base = mime.split(';')[0].trim().toLowerCase()
+  const ext = VOICE_TYPES[mime] ?? VOICE_TYPES[base] ?? 'webm'
+  if (!VOICE_TYPES[mime] && !VOICE_TYPES[base] && !base.startsWith('audio/')) {
+    throw new Error('Неподдерживаемый формат аудио.')
+  }
+  if (blob.size > 5 * 1024 * 1024) throw new Error('Голосовое больше 5 МБ.')
+  if (blob.size < 200) throw new Error('Слишком короткая запись.')
+  const path = `${chatId}/${crypto.randomUUID()}.${ext}`
+  const contentType = base.startsWith('audio/') ? base : 'audio/webm'
+  const { error } = await supabase.storage.from('attachments').upload(path, blob, { contentType })
   if (error) throw error
   return path
 }

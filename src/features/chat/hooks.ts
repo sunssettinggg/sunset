@@ -214,9 +214,11 @@ export function useImageUrls(messages: Message[]) {
         return next
       })
     }
-    const images = missing.filter((m) => m.attachment_type !== 'file').map((m) => m.attachment_path as string)
+    const streamable = missing
+      .filter((m) => m.attachment_type === 'image' || m.attachment_type === 'voice' || m.attachment_type == null)
+      .map((m) => m.attachment_path as string)
     const files = missing.filter((m) => m.attachment_type === 'file').map((m) => m.attachment_path as string)
-    if (images.length > 0) void bucket.createSignedUrls(images, 3600).then(({ data }) => store(data))
+    if (streamable.length > 0) void bucket.createSignedUrls(streamable, 3600).then(({ data }) => store(data))
     if (files.length > 0) void bucket.createSignedUrls(files, 3600, { download: true }).then(({ data }) => store(data))
   }, [messages, urls])
   return urls
