@@ -41,7 +41,12 @@ function Messenger({ userId }: { userId: string }) {
 
   const loadMe = useCallback(() => {
     supabase.from('profiles').select(PROFILE_SELECT).eq('id', userId).single()
-      .then(({ data, error }) => (error ? setError(error.message) : setMe(data as Profile)))
+      .then(({ data, error }) => {
+        if (!error) { setMe(data as Profile); return }
+        const isAuthError = /jwt|refresh token/i.test(error.message)
+        if (isAuthError) void supabase.auth.signOut()
+        else setError(error.message)
+      })
   }, [userId])
   useEffect(() => { loadMe() }, [loadMe])
 
