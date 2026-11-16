@@ -10,6 +10,8 @@ import AuthGate from './features/auth/AuthGate'
 import AccountMenu from './features/auth/AccountMenu'
 import { addAccountFlow, saveAccount, signOutCurrent, switchAccount, useAccountSync } from './features/auth/accounts'
 import MarketPage from './features/market/MarketPage'
+import PremiumPage from './features/premium/PremiumPage'
+import { OPEN_PREMIUM_EVENT } from './features/premium/premium'
 import NavRail, { type View } from './features/chat/NavRail'
 import Sidebar from './features/chat/Sidebar'
 import ChatView from './features/chat/ChatView'
@@ -53,6 +55,11 @@ function Messenger({ userId }: { userId: string }) {
   }, [userId])
   useEffect(() => { loadMe() }, [loadMe])
   useEffect(() => {
+    const open = () => setView('premium')
+    window.addEventListener(OPEN_PREMIUM_EVENT, open)
+    return () => window.removeEventListener(OPEN_PREMIUM_EVENT, open)
+  }, [])
+  useEffect(() => {
     if (!me) return
     void supabase.auth.getSession().then(({ data }) => {
       if (data.session) saveAccount(data.session, me)
@@ -93,7 +100,7 @@ function Messenger({ userId }: { userId: string }) {
 
   return (
     <div className="flex h-full">
-      <div className={view === 'market' ? 'flex' : selected ? 'hidden md:flex' : 'flex w-full md:w-auto'}>
+      <div className={view !== 'chats' ? 'flex' : selected ? 'hidden md:flex' : 'flex w-full md:w-auto'}>
         <NavRail me={me} theme={theme} view={view} totalUnread={totalUnread} onChangeView={setView}
           onToggleTheme={() => changeTheme(theme === 'dark' ? 'light' : 'dark')}
           onOpenProfile={() => setProfileOpen(true)} onOpenSettings={() => setMenuOpen(true)} />
@@ -103,6 +110,8 @@ function Messenger({ userId }: { userId: string }) {
       </div>
       {view === 'market' ? (
         <MarketPage me={me} onProfileChanged={loadMe} />
+      ) : view === 'premium' ? (
+        <PremiumPage me={me} onProfileChanged={loadMe} />
       ) : selected ? (
         <>
           <ChatView key={selected.id} chat={selected} chats={chats} myId={me.id} myName={me.display_name}

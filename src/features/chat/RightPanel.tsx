@@ -6,6 +6,7 @@ import ChannelCard from './ChannelCard'
 import ChatAvatar from './ChatAvatar'
 import UsernameLine from './UsernameLine'
 import VerifiedBadge from '../verified/VerifiedBadge'
+import PremiumBadge from '../premium/PremiumBadge'
 import GiftSendModal from '../market/GiftSendModal'
 import ProfileGifts from '../market/ProfileGifts'
 import CollectibleModal from '../market/CollectibleModal'
@@ -81,7 +82,7 @@ export default function RightPanel({ chat, myId, online, muted, onToggleMute, on
           </div>
         </div>
         <div className="mt-2 flex items-center justify-center gap-1.5 text-xl font-bold">
-          <span className="break-words">{chat.name}</span>{chat.verified && <VerifiedBadge size={18} />}
+          <span className="break-words">{chat.name}</span>{chat.verified && <VerifiedBadge size={18} />}<PremiumBadge userId={chat.otherId} size={18} />
         </div>
         {chat.username && <div className="text-sm text-muted"><UsernameLine muted username={chat.username} handles={chat.handles}
           onHandleClick={(h) => setCollectible({ kind: 'username', value: h })} /></div>}

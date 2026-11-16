@@ -1,9 +1,9 @@
-import { MessageCircle, Moon, Settings, Star, Sun } from 'lucide-react'
+import { MessageCircle, Moon, Settings, Sparkles, Star, Sun } from 'lucide-react'
 import type { Profile } from '../../lib/types'
 import type { Theme } from '../../lib/prefs'
 import Avatar from './Avatar'
 
-export type View = 'chats' | 'market'
+export type View = 'chats' | 'market' | 'premium'
 
 interface Props {
   me: Profile
@@ -34,6 +34,9 @@ export default function NavRail({ me, theme, view, totalUnread, onChangeView, on
       </button>
       <button onClick={() => onChangeView('market')} title="Маркет" className={navBtn(view === 'market')}>
         <Star size={22} />
+      </button>
+      <button onClick={() => onChangeView('premium')} title="Sunset Premium" className={navBtn(view === 'premium')}>
+        <Sparkles size={22} />
       </button>
       <div className="flex-1" />
       <button onClick={onToggleTheme} title="Сменить тему" className={iconBtn}>

@@ -3,6 +3,7 @@ import { Bookmark, Check, ChevronDown, ChevronUp, Loader2, Megaphone, Moon, Plus
 import type { Profile } from '../../lib/types'
 import Avatar from '../chat/Avatar'
 import VerifiedBadge from '../verified/VerifiedBadge'
+import PremiumBadge from '../premium/PremiumBadge'
 import { MAX_ACCOUNTS, readAccounts } from './accounts'
 
 interface Props {
@@ -61,7 +62,7 @@ export default function AccountMenu({
             <span className="min-w-0">
               <span className="flex items-center gap-1.5 text-base font-semibold">
                 <span className="truncate">{me.display_name}</span>
-                {me.verified && <VerifiedBadge size={16} />}
+                {me.verified && <VerifiedBadge size={16} />}<PremiumBadge userId={me.id} size={16} />
               </span>
               <span className="block truncate text-xs text-muted">@{me.username}</span>
             </span>

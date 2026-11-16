@@ -4,6 +4,7 @@ import type { Profile, ProfileChannel } from '../../lib/types'
 import { changeUsername, profileChannel, updateProfile, uploadAvatar } from '../chat/api'
 import Avatar from '../chat/Avatar'
 import VerifiedBadge from '../verified/VerifiedBadge'
+import PremiumBadge from '../premium/PremiumBadge'
 import { useMyVerified } from '../verified/useMyVerified'
 import ChannelCard from '../chat/ChannelCard'
 import ProfileGifts from '../market/ProfileGifts'
@@ -89,7 +90,7 @@ export default function ProfileModal({ me, onClose, onSaved, onOpenChannel }: Pr
             <input value={displayName} maxLength={50} onChange={(e) => setDisplayName(e.target.value)} placeholder="Имя"
               size={Math.max(displayName.length, 3)} style={{ minWidth: '3ch', maxWidth: '16rem' }}
               className="bg-transparent text-center text-xl font-bold outline-none placeholder:text-muted" />
-            {verified && <VerifiedBadge size={18} />}
+            {verified && <VerifiedBadge size={18} />}<PremiumBadge userId={me.id} size={18} />
           </div>
           <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm text-muted">
             <span className="flex items-center">
