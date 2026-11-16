@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { BellOff, Search } from 'lucide-react'
-import type { ChatItem, LastMessage, Profile } from '../../lib/types'
-import { createDirectChat, searchProfiles } from './api'
+import { BellOff, Plus, Search } from 'lucide-react'
+import type { ChatItem, LastMessage, Profile, PublicChat } from '../../lib/types'
+import { plural } from '../../lib/format'
+import { createDirectChat, joinChat, searchProfiles, searchPublicChats } from './api'
 import Avatar from './Avatar'
 import ChatAvatar from './ChatAvatar'
 import UsernameLine from './UsernameLine'
@@ -17,6 +18,7 @@ interface Props {
   muted: string[]
   onSelect: (id: string) => void
   onChatCreated: () => Promise<void>
+  onNewChat: () => void
 }
 
 function formatTime(iso: string): string {
@@ -26,18 +28,21 @@ function formatTime(iso: string): string {
     : d.toLocaleDateString([], { day: 'numeric', month: 'short' })
 }
 
-export default function Sidebar({ myId, chats, loading, selectedId, unread, last, online, muted, onSelect, onChatCreated }: Props) {
+export default function Sidebar({ myId, chats, loading, selectedId, unread, last, online, muted, onSelect, onChatCreated, onNewChat }: Props) {
   const [query, setQuery] = useState('')
-  const [results, setResults] = useState<Profile[]>([])
+  const [people, setPeople] = useState<Profile[]>([])
+  const [publics, setPublics] = useState<PublicChat[]>([])
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!query.trim()) { setResults([]); return }
+    if (!query.trim()) { setPeople([]); setPublics([]); return }
     const t = setTimeout(() => {
-      searchProfiles(query).then(setResults).catch((e: Error) => setError(e.message))
+      Promise.all([searchProfiles(query), searchPublicChats(query)])
+        .then(([p, c]) => { setPeople(p); setPublics(c) })
+        .catch((e: Error) => setError(e.message))
     }, 250)
     return () => clearTimeout(t)
-  }, [query, myId])
+  }, [query])
 
   async function startChat(other: Profile) {
     try {
@@ -45,18 +50,30 @@ export default function Sidebar({ myId, chats, loading, selectedId, unread, last
       await onChatCreated()
       onSelect(id)
       setQuery('')
-    } catch (e) {
-      setError((e as Error).message)
-    }
+    } catch (e) { setError((e as Error).message) }
   }
+
+  async function openPublic(c: PublicChat) {
+    try {
+      if (!c.joined) { await joinChat(c.id); await onChatCreated() }
+      onSelect(c.id)
+      setQuery('')
+    } catch (e) { setError((e as Error).message) }
+  }
+
+  const rowCls = 'flex w-full items-center gap-3 rounded-xl p-3 text-left transition hover:bg-surface'
 
   return (
     <aside className="flex h-full min-w-0 flex-1 flex-col bg-bg2 md:w-80 md:flex-none md:border-r md:border-line">
-      <h1 className="px-5 pt-5 pb-3 text-xl font-semibold">Чаты</h1>
+      <div className="flex items-center justify-between px-5 pt-5 pb-3">
+        <h1 className="text-xl font-semibold">Чаты</h1>
+        <button onClick={onNewChat} title="Новая группа или канал"
+          className="rounded-lg p-2 text-muted transition hover:bg-surface hover:text-text"><Plus size={20} /></button>
+      </div>
       <div className="px-4 pb-3">
         <div className="flex items-center gap-2 rounded-xl bg-surface px-3 py-2.5 focus-within:ring-2 focus-within:ring-accent">
           <Search size={16} className="text-muted" />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Найти по username"
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Люди, группы и каналы"
             className="w-full bg-transparent text-sm outline-none placeholder:text-muted" />
         </div>
         {error && <p className="mt-2 text-xs text-pink">{error}</p>}
@@ -64,19 +81,33 @@ export default function Sidebar({ myId, chats, loading, selectedId, unread, last
 
       <div className="flex-1 overflow-y-auto px-2 pb-2">
         {query.trim() ? (
-          results.length === 0 ? (
-            <p className="p-4 text-sm text-muted">Никого не найдено</p>
+          people.length === 0 && publics.length === 0 ? (
+            <p className="p-4 text-sm text-muted">Ничего не найдено</p>
           ) : (
-            results.map((p) => (
-              <button key={p.id} onClick={() => void startChat(p)}
-                className="flex w-full items-center gap-3 rounded-xl p-3 text-left transition hover:bg-surface">
-                <Avatar name={p.display_name} url={p.avatar_url} />
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-medium">{p.display_name}</div>
-                  <div className="text-xs"><UsernameLine muted username={p.username} handles={p.handles} /></div>
-                </div>
-              </button>
-            ))
+            <>
+              {people.map((p) => (
+                <button key={p.id} onClick={() => void startChat(p)} className={rowCls}>
+                  <Avatar name={p.display_name} url={p.avatar_url} />
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium">{p.display_name}</div>
+                    <div className="text-xs"><UsernameLine muted username={p.username} handles={p.handles} /></div>
+                  </div>
+                </button>
+              ))}
+              {publics.map((c) => (
+                <button key={c.id} onClick={() => void openPublic(c)} className={rowCls}>
+                  <Avatar name={c.title} url={c.avatar_url} />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium">{c.title}</div>
+                    <div className="truncate text-xs text-muted">
+                      {c.kind === 'channel' ? plural(c.members, ['подписчик', 'подписчика', 'подписчиков']) : plural(c.members, ['участник', 'участника', 'участников'])}
+                      {c.handle ? ` · @${c.handle}` : ''}
+                    </div>
+                  </div>
+                  <span className="text-xs text-accent">{c.joined ? 'Открыть' : 'Вступить'}</span>
+                </button>
+              ))}
+            </>
           )
         ) : loading ? (
           <div className="space-y-3 p-3">
@@ -89,8 +120,7 @@ export default function Sidebar({ myId, chats, loading, selectedId, unread, last
             const count = unread[c.id] ?? 0
             return (
               <button key={c.id} onClick={() => onSelect(c.id)}
-                className={`flex w-full items-center gap-3 rounded-xl p-3 text-left transition hover:bg-surface ${
-                  c.id === selectedId ? 'bg-surface' : ''}`}>
+                className={`${rowCls} ${c.id === selectedId ? 'bg-surface' : ''}`}>
                 <ChatAvatar chat={c} online={c.otherId !== null && online.has(c.otherId)} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
@@ -100,7 +130,7 @@ export default function Sidebar({ myId, chats, loading, selectedId, unread, last
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="flex-1 truncate text-xs text-muted">
-                      {l ? `${l.sender_id === myId && c.kind !== 'saved' ? 'Вы: ' : ''}${l.body ?? 'Вложение'}` : 'Сообщений пока нет'}
+                      {l ? `${l.sender_id === myId && c.kind !== 'saved' ? 'Вы: ' : ''}${l.body ?? '📷 Фото'}` : 'Сообщений пока нет'}
                     </span>
                     {count > 0 && (
                       <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${

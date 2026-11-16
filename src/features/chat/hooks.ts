@@ -199,3 +199,42 @@ export function useMessages(chatId: string, myId: string, peerId: string | null)
     add, patch, remove, setPinId, sendTyping, toggleReaction,
   }
 }
+
+export function useImageUrls(messages: Message[]) {
+  const [urls, setUrls] = useState<Record<string, string>>({})
+  useEffect(() => {
+    const missing = messages.filter((m) => m.attachment_path && !urls[m.attachment_path])
+    if (missing.length === 0) return
+    const bucket = supabase.storage.from('attachments')
+    const store = (data: { path: string | null; signedUrl: string | null }[] | null) => {
+      if (!data) return
+      setUrls((prev) => {
+        const next = { ...prev }
+        for (const d of data) if (d.path && d.signedUrl) next[d.path] = d.signedUrl
+        return next
+      })
+    }
+    const images = missing.filter((m) => m.attachment_type !== 'file').map((m) => m.attachment_path as string)
+    const files = missing.filter((m) => m.attachment_type === 'file').map((m) => m.attachment_path as string)
+    if (images.length > 0) void bucket.createSignedUrls(images, 3600).then(({ data }) => store(data))
+    if (files.length > 0) void bucket.createSignedUrls(files, 3600, { download: true }).then(({ data }) => store(data))
+  }, [messages, urls])
+  return urls
+}
+
+export function useProfileNames(messages: Message[]) {
+  const [names, setNames] = useState<Record<string, string>>({})
+  useEffect(() => {
+    const missing = [...new Set(messages.map((m) => m.sender_id))].filter((id) => !names[id])
+    if (missing.length === 0) return
+    void supabase.from('profiles').select('id, display_name').in('id', missing).then(({ data }) => {
+      if (!data) return
+      setNames((prev) => {
+        const next = { ...prev }
+        for (const r of data as { id: string; display_name: string }[]) next[r.id] = r.display_name
+        return next
+      })
+    })
+  }, [messages, names])
+  return names
+}

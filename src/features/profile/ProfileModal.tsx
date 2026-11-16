@@ -1,10 +1,11 @@
-import { useRef, useState, type ChangeEvent } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { Camera, Loader2 } from 'lucide-react'
-import type { Profile } from '../../lib/types'
-import { changeUsername, updateProfile, uploadAvatar } from '../chat/api'
+import type { Profile, ProfileChannel } from '../../lib/types'
+import { changeUsername, profileChannel, updateProfile, uploadAvatar } from '../chat/api'
 import Avatar from '../chat/Avatar'
+import ChannelCard from '../chat/ChannelCard'
 
-interface Props { me: Profile; onClose: () => void; onSaved: (p: Profile) => void }
+interface Props { me: Profile; onClose: () => void; onSaved: (p: Profile) => void; onOpenChannel: (c: ProfileChannel) => Promise<void> }
 
 const field = 'w-full rounded-xl bg-surface px-4 py-3 text-sm outline-none ring-1 ring-line focus:ring-2 focus:ring-accent'
 const USERNAME_RE = /^[a-z0-9_]{3,20}$/
@@ -15,7 +16,7 @@ function friendly(msg: string): string {
   return msg
 }
 
-export default function ProfileModal({ me, onClose, onSaved }: Props) {
+export default function ProfileModal({ me, onClose, onSaved, onOpenChannel }: Props) {
   const [displayName, setDisplayName] = useState(me.display_name)
   const [username, setUsername] = useState(me.username)
   const [bio, setBio] = useState(me.bio ?? '')
@@ -23,6 +24,8 @@ export default function ProfileModal({ me, onClose, onSaved }: Props) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const [channel, setChannel] = useState<ProfileChannel | null>(null)
+  useEffect(() => { profileChannel(me.id).then(setChannel).catch(() => undefined) }, [me.id, me.channel_id])
 
   async function onFile(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -84,6 +87,14 @@ export default function ProfileModal({ me, onClose, onSaved }: Props) {
               </div>
             )}
           </div>
+        )}
+        {channel ? (
+          <div>
+            <div className="mb-1 px-1 text-xs text-muted">Канал в профиле</div>
+            <ChannelCard card={channel} onOpen={(c) => { onClose(); return onOpenChannel(c) }} />
+          </div>
+        ) : (
+          <p className="text-xs text-muted">Канал в профиль: откройте свой канал, затем «Информация» → «Показывать в профиле».</p>
         )}
         <p className="text-xs text-muted">Коллекционные юзернеймы добавляются и убираются в Настройки → Маркет.</p>
 

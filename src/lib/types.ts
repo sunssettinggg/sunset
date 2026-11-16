@@ -1,3 +1,6 @@
+export type ChatKind = 'direct' | 'group' | 'channel' | 'saved'
+export type Role = 'owner' | 'admin' | 'member'
+
 export interface Profile {
   id: string
   username: string
@@ -7,6 +10,7 @@ export interface Profile {
   created_at: string
   showcase_number: string | null
   handles: string[]
+  channel_id: string | null
 }
 
 export interface Message {
@@ -18,6 +22,8 @@ export interface Message {
   created_at: string
   edited_at: string | null
   forwarded_from: string | null
+  attachment_path: string | null
+  attachment_type: 'image' | 'file' | null
 }
 
 export interface Reaction {
@@ -34,7 +40,8 @@ export interface LastMessage {
 
 export interface ChatItem {
   id: string
-  kind: 'direct' | 'group' | 'saved'
+  kind: ChatKind
+  role: Role
   name: string
   username: string | null
   avatarUrl: string | null
@@ -43,6 +50,36 @@ export interface ChatItem {
   joinedAt: string | null
   number: string | null
   handles: string[]
+  description: string | null
+  isPublic: boolean
+  publicHandle: string | null
+}
+
+export interface PublicChat {
+  id: string
+  kind: 'group' | 'channel'
+  title: string
+  description: string | null
+  handle: string | null
+  avatar_url: string | null
+  members: number
+  joined: boolean
+}
+
+export interface ProfileChannel {
+  id: string
+  title: string
+  is_public: boolean
+  members: number
+  joined: boolean
+}
+
+export interface Member {
+  user_id: string
+  role: Role
+  display_name: string
+  username: string
+  avatar_url: string | null
 }
 
 export interface MarketItem {

@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent, type TouchEvent } from 'react'
-import { ArrowLeft, Check, CheckCheck, Copy, Forward, PanelRight, Pencil, Pin, Reply, SendHorizontal, Trash2, X } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ClipboardEvent, type FormEvent, type MouseEvent, type TouchEvent } from 'react'
+import { ArrowLeft, Check, CheckCheck, Copy, Forward, ImagePlus, PanelRight, Paperclip, Pencil, Pin, Reply, SendHorizontal, Trash2, X } from 'lucide-react'
 import type { ChatItem, Message } from '../../lib/types'
-import { clearPin, deleteMessage, sendMessage, setPin, updateMessage } from './api'
-import { useMessages } from './hooks'
+import { clearPin, copyChatImage, deleteMessage, sendMessage, setPin, updateMessage, uploadChatImage } from './api'
+import { useImageUrls, useMessages, useProfileNames } from './hooks'
 import ChatAvatar from './ChatAvatar'
 import ForwardModal from './ForwardModal'
+import SendImageModal from './SendImageModal'
 import MessageMenu, { type MenuAction } from './MessageMenu'
 
 const EMOJIS = ['👍', '❤️', '😂', '🔥', '😮', '😢']
@@ -19,6 +20,8 @@ interface Props {
   onBack: () => void
   onToggleInfo: () => void
 }
+
+const fileName = (path: string) => (path.includes('__') ? path.slice(path.indexOf('__') + 2) : 'Файл')
 
 function formatFull(iso: string): string {
   const d = new Date(iso)
@@ -45,8 +48,15 @@ export default function ChatView({ chat, chats, myId, myName, online, background
   const [sendError, setSendError] = useState<string | null>(null)
   const endRef = useRef<HTMLDivElement>(null)
   const pressTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [viewer, setViewer] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [pending, setPending] = useState<File[] | null>(null)
+  const urls = useImageUrls(messages)
+  const names = useProfileNames(messages)
   const saved = chat.kind === 'saved'
   const direct = chat.kind === 'direct'
+  const canPost = chat.kind !== 'channel' || chat.role !== 'member'
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages.length])
 
@@ -60,12 +70,12 @@ export default function ChatView({ chat, chats, myId, myName, online, background
     return map
   }, [reactions])
 
-  const status = typing ? 'печатает…' : saved ? 'Только для вас' : online ? 'в сети' : chat.username ? `@${chat.username}` : ''
+  const status = typing ? 'печатает…' : saved ? 'Только для вас' : chat.kind === 'group' ? 'Группа' : chat.kind === 'channel' ? 'Канал' : online ? 'в сети' : chat.username ? `@${chat.username}` : ''
   const pinned = pinId ? messages.find((m) => m.id === pinId) : undefined
   const selectedMessages = messages.filter((m) => selected.has(m.id))
   const fail = (e: unknown) => setSendError((e as Error).message)
   const isRead = (m: Message) => peerReadAt !== null && Date.parse(peerReadAt) >= Date.parse(m.created_at)
-  const senderName = (m: Message) => (m.sender_id === myId ? myName : chat.name)
+  const senderName = (m: Message) => (m.sender_id === myId ? myName : (names[m.sender_id] ?? chat.name))
 
   function exitSelect() { setSelectMode(false); setSelected(new Set()) }
   function toggleSelect(id: string) {
@@ -114,7 +124,10 @@ export default function ChatView({ chat, chats, myId, myName, online, background
     setForwarding(null)
     exitSelect()
     for (const m of list) {
-      try { await sendMessage(target.id, myId, m.body ?? '', null, m.forwarded_from ?? senderName(m)) } catch (e) { fail(e) }
+      try {
+        const att = m.attachment_path ? { path: await copyChatImage(m.attachment_path, target.id), type: (m.attachment_type === 'file' ? 'file' : 'image') as 'image' | 'file' } : null
+        await sendMessage(target.id, myId, m.body, null, m.forwarded_from ?? senderName(m), att)
+      } catch (e) { fail(e) }
     }
   }
 
@@ -134,6 +147,34 @@ export default function ChatView({ chat, chats, myId, myName, online, background
     setText(''); setReplyTo(null)
     try { add(await sendMessage(chat.id, myId, body, reply?.id ?? null)) }
     catch (err) { fail(err); setText(body); setReplyTo(reply) }
+  }
+
+  function onPickImages(e: ChangeEvent<HTMLInputElement>) {
+    const list = Array.from(e.target.files ?? []).filter((f) => f.type.startsWith('image/'))
+    e.target.value = ''
+    if (list.length > 0) setPending(list)
+  }
+
+  function onPaste(e: ClipboardEvent<HTMLInputElement>) {
+    const list = Array.from(e.clipboardData.files).filter((f) => f.type.startsWith('image/'))
+    if (list.length === 0 || !canPost || editing) return
+    e.preventDefault()
+    setPending(list)
+  }
+
+  async function sendImages(list: File[], caption: string, asFile: boolean) {
+    setPending(null)
+    setUploading(true); setSendError(null)
+    const reply = replyTo
+    setText(''); setReplyTo(null)
+    try {
+      for (let i = 0; i < list.length; i++) {
+        const path = await uploadChatImage(chat.id, list[i], asFile)
+        const first = i === 0
+        add(await sendMessage(chat.id, myId, first ? caption.trim() || null : null, first ? (reply?.id ?? null) : null, null,
+          { path, type: asFile ? 'file' : 'image' }))
+      }
+    } catch (err) { fail(err) } finally { setUploading(false) }
   }
 
   const headerInfo = (
@@ -220,16 +261,36 @@ export default function ChatView({ chat, chats, myId, myName, online, background
                     className={`rounded-2xl px-4 py-2 text-sm select-none md:select-text ${
                       mine ? 'rounded-br-md bg-accent text-on-accent' : 'rounded-bl-md bg-surface'} ${
                       selected.has(m.id) ? 'ring-2 ring-text' : ''}`}>
+                    {!mine && chat.kind === 'group' && (
+                      <div className="mb-1 text-xs font-medium text-accent">{names[m.sender_id] ?? '…'}</div>
+                    )}
                     {m.forwarded_from && (
                       <div className={`mb-1 text-xs ${mine ? 'text-on-accent/80' : 'text-accent'}`}>Переслано от {m.forwarded_from}</div>
                     )}
                     {m.reply_to && (
                       <div className={`mb-1 truncate border-l-2 pl-2 text-xs ${
                         mine ? 'border-on-accent/50 text-on-accent/80' : 'border-accent text-muted'}`}>
-                        {original?.body ?? 'Сообщение'}
+                        {original?.body ?? (original?.attachment_path ? '📷 Фото' : 'Сообщение')}
                       </div>
                     )}
-                    <p className="break-words whitespace-pre-wrap">{m.body}</p>
+                    {m.attachment_path && (
+                      !urls[m.attachment_path]
+                        ? <div className="mb-1 h-40 w-56 animate-pulse rounded-xl bg-bg/30" />
+                        : m.attachment_type === 'file'
+                          ? (
+                            <a href={urls[m.attachment_path]} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}
+                              className="mb-1 flex items-center gap-3 rounded-xl bg-bg/20 p-2">
+                              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-bg/30"><Paperclip size={18} /></span>
+                              <span className="min-w-0">
+                                <span className="block truncate text-sm">{fileName(m.attachment_path)}</span>
+                                <span className="block text-xs opacity-70">Скачать</span>
+                              </span>
+                            </a>
+                          )
+                          : <img src={urls[m.attachment_path]} alt="" className="mb-1 max-h-72 max-w-full cursor-zoom-in rounded-xl object-cover"
+                              onClick={(e) => { e.stopPropagation(); if (!selectMode) setViewer(urls[m.attachment_path!]) }} />
+                    )}
+                    {m.body && <p className="break-words whitespace-pre-wrap">{m.body}</p>}
                     <div className={`mt-1 flex items-center justify-end gap-1 text-[10px] ${mine ? 'text-on-accent/70' : 'text-muted'}`}>
                       {m.edited_at && <span>изменено</span>}
                       {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -255,6 +316,9 @@ export default function ChatView({ chat, chats, myId, myName, online, background
         </div>
       </div>
 
+      {!canPost ? (
+        <div className="border-t border-line bg-bg2 p-4 text-center text-sm text-muted">Писать в канал могут только администраторы</div>
+      ) : (
       <form onSubmit={onSubmit} className="border-t border-line bg-bg2 p-3">
         {(replyTo || editing) && (
           <div className="mb-2 flex items-center gap-2 rounded-xl bg-surface px-3 py-2 text-xs">
@@ -266,7 +330,10 @@ export default function ChatView({ chat, chats, myId, myName, online, background
         )}
         {sendError && <p className="mb-2 text-xs text-pink">Ошибка: {sendError}</p>}
         <div className="flex items-center gap-2 rounded-2xl bg-surface px-4 py-1.5">
-          <input value={text} maxLength={4000} placeholder="Сообщение"
+          <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple className="hidden" onChange={onPickImages} />
+          <button type="button" title="Отправить фото" disabled={uploading || !!editing} onClick={() => fileRef.current?.click()}
+            className="rounded-xl p-2 text-muted transition hover:text-text disabled:opacity-40"><ImagePlus size={20} /></button>
+          <input value={text} maxLength={4000} placeholder="Сообщение" onPaste={onPaste}
             onChange={(e) => { setText(e.target.value); if (e.target.value && !saved && !editing) sendTyping() }}
             className="flex-1 bg-transparent py-2 text-sm outline-none placeholder:text-muted" />
           <button type="submit" disabled={!text.trim()} title={editing ? 'Сохранить' : 'Отправить'}
@@ -275,12 +342,22 @@ export default function ChatView({ chat, chats, myId, myName, online, background
           </button>
         </div>
       </form>
+      )}
 
       {menu && (
         <MessageMenu x={menu.x} y={menu.y} mine={menu.m.sender_id === myId} pinned={pinId === menu.m.id} emojis={EMOJIS}
           time={formatFull(menu.m.created_at)} read={menu.m.sender_id === myId && direct ? isRead(menu.m) : null}
           onReact={(e) => { void toggleReaction(menu.m.id, e); setMenu(null) }}
           onAction={(a) => void onAction(a, menu.m)} onClose={() => setMenu(null)} />
+      )}
+      {pending && (
+        <SendImageModal files={pending} initialCaption={text} onCancel={() => setPending(null)}
+          onSend={(list, caption, asFile) => void sendImages(list, caption, asFile)} />
+      )}
+      {viewer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4" onClick={() => setViewer(null)}>
+          <img src={viewer} alt="" className="max-h-full max-w-full object-contain" />
+        </div>
       )}
       {forwarding && (
         <ForwardModal chats={chats} count={forwarding.length} onPick={(c) => void doForward(c)} onClose={() => setForwarding(null)} />

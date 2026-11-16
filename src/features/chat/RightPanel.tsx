@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Bell, BellOff, Check, Copy, MessageCircle, X } from 'lucide-react'
-import type { ChatItem } from '../../lib/types'
+import type { ChatItem, ProfileChannel } from '../../lib/types'
+import { profileChannel } from './api'
+import ChannelCard from './ChannelCard'
 import ChatAvatar from './ChatAvatar'
 import UsernameLine from './UsernameLine'
 
@@ -9,6 +11,7 @@ interface Props {
   online: boolean
   muted: boolean
   onToggleMute: () => void
+  onOpenChannel: (c: ProfileChannel) => Promise<void>
   onClose: () => void
 }
 
@@ -23,8 +26,16 @@ function Row({ label, value }: { label: string; value: string }) {
   )
 }
 
-export default function RightPanel({ chat, online, muted, onToggleMute, onClose }: Props) {
+export default function RightPanel({ chat, online, muted, onToggleMute, onOpenChannel, onClose }: Props) {
   const [copied, setCopied] = useState(false)
+  const [channel, setChannel] = useState<ProfileChannel | null>(null)
+
+  useEffect(() => {
+    let active = true
+    setChannel(null)
+    if (chat.otherId) profileChannel(chat.otherId).then((c) => { if (active) setChannel(c) }).catch(() => undefined)
+    return () => { active = false }
+  }, [chat.otherId])
 
   function copyUsername() {
     if (!chat.username) return
@@ -69,6 +80,13 @@ export default function RightPanel({ chat, online, muted, onToggleMute, onClose 
           <Row label="В SUNSET с" value={new Date(chat.joinedAt).toLocaleDateString([], { day: 'numeric', month: 'long', year: 'numeric' })} />
         )}
       </div>
+
+      {channel && (
+        <div>
+          <div className="mb-1 px-1 text-xs text-muted">Канал</div>
+          <ChannelCard card={channel} onOpen={onOpenChannel} />
+        </div>
+      )}
     </aside>
   )
 }
