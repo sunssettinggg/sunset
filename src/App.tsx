@@ -6,7 +6,9 @@ import {
   setMuted as persistMuted, type FlagName, type Theme,
 } from './lib/prefs'
 import { useSession } from './features/auth/session'
-import AuthPage from './features/auth/AuthPage'
+import AuthGate from './features/auth/AuthGate'
+import AccountMenu from './features/auth/AccountMenu'
+import { addAccountFlow, saveAccount, signOutCurrent, switchAccount, useAccountSync } from './features/auth/accounts'
 import MarketPage from './features/market/MarketPage'
 import NavRail, { type View } from './features/chat/NavRail'
 import Sidebar from './features/chat/Sidebar'
@@ -19,7 +21,7 @@ import SettingsModal from './features/settings/SettingsModal'
 import { joinChat } from './features/chat/api'
 import { useChats, useOnline } from './features/chat/hooks'
 
-const PROFILE_SELECT = 'id, username, display_name, bio, avatar_url, created_at, showcase_number, handles, channel_id'
+const PROFILE_SELECT = 'id, username, display_name, bio, avatar_url, created_at, showcase_number, handles, channel_id, verified'
 
 function Messenger({ userId }: { userId: string }) {
   const [me, setMe] = useState<Profile | null>(null)
@@ -28,6 +30,7 @@ function Messenger({ userId }: { userId: string }) {
   const [showInfo, setShowInfo] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const [newChatOpen, setNewChatOpen] = useState(false)
   const [view, setView] = useState<View>('chats')
   const [theme, setTheme] = useState<Theme>(loadTheme)
@@ -49,6 +52,12 @@ function Messenger({ userId }: { userId: string }) {
       })
   }, [userId])
   useEffect(() => { loadMe() }, [loadMe])
+  useEffect(() => {
+    if (!me) return
+    void supabase.auth.getSession().then(({ data }) => {
+      if (data.session) saveAccount(data.session, me)
+    })
+  }, [me])
 
   if (error) return <p className="p-6 text-pink">Ошибка чтения профиля: {error}</p>
   if (!me) return <div className="flex h-full items-center justify-center text-muted">Загрузка…</div>
@@ -87,7 +96,7 @@ function Messenger({ userId }: { userId: string }) {
       <div className={view === 'market' ? 'flex' : selected ? 'hidden md:flex' : 'flex w-full md:w-auto'}>
         <NavRail me={me} theme={theme} view={view} totalUnread={totalUnread} onChangeView={setView}
           onToggleTheme={() => changeTheme(theme === 'dark' ? 'light' : 'dark')}
-          onOpenProfile={() => setProfileOpen(true)} onOpenSettings={() => setSettingsOpen(true)} />
+          onOpenProfile={() => setProfileOpen(true)} onOpenSettings={() => setMenuOpen(true)} />
         {view === 'chats' && <Sidebar myId={me.id} chats={chats} loading={loading} selectedId={selectedId} unread={unread}
           last={last} online={online} muted={muted} onSelect={setSelectedId} onChatCreated={reload}
           onNewChat={() => setNewChatOpen(true)} />}
@@ -112,12 +121,25 @@ function Messenger({ userId }: { userId: string }) {
       ) : (
         <div className="hidden flex-1 items-center justify-center bg-bg text-sm text-muted md:flex">Выбери чат или найди человека</div>
       )}
+      {menuOpen && <AccountMenu me={me} dark={theme === 'dark'} canOpenSaved={chats.some((c) => c.kind === 'saved')}
+        onClose={() => setMenuOpen(false)}
+        onProfile={() => { setMenuOpen(false); setProfileOpen(true) }}
+        onSettings={() => { setMenuOpen(false); setSettingsOpen(true) }}
+        onNewChat={() => { setMenuOpen(false); setNewChatOpen(true) }}
+        onSaved={() => {
+          const s = chats.find((c) => c.kind === 'saved')
+          setMenuOpen(false)
+          if (s) { setView('chats'); setSelectedId(s.id) }
+        }}
+        onToggleTheme={() => changeTheme(theme === 'dark' ? 'light' : 'dark')}
+        onSwitch={(id) => switchAccount(id)}
+        onAddAccount={() => { setMenuOpen(false); void addAccountFlow(me.id) }} />}
       {profileOpen && <ProfileModal me={me} onOpenChannel={openChannel} onClose={() => setProfileOpen(false)}
         onSaved={(p) => { setMe(p); setProfileOpen(false) }} />}
       {settingsOpen && <SettingsModal me={me} theme={theme} background={background}
         flags={flags} mutedCount={muted.length} onSetTheme={changeTheme} onSetBackground={changeBackground}
         onSetFlag={changeFlag} onEditProfile={() => setProfileOpen(true)}
-        onSignOut={() => void supabase.auth.signOut()} onClose={() => setSettingsOpen(false)} />}
+        onSignOut={() => void signOutCurrent(me.id)} onClose={() => setSettingsOpen(false)} />}
       {newChatOpen && <NewChatModal onClose={() => setNewChatOpen(false)}
         onDone={(id) => { setNewChatOpen(false); void reload().then(() => setSelectedId(id)) }} />}
     </div>
@@ -126,6 +148,7 @@ function Messenger({ userId }: { userId: string }) {
 
 export default function App() {
   const { session, loading } = useSession()
+  useAccountSync()
   if (loading) return <div className="flex h-full items-center justify-center text-muted">Загрузка…</div>
-  return session ? <Messenger userId={session.user.id} /> : <AuthPage />
+  return session ? <Messenger key={session.user.id} userId={session.user.id} /> : <AuthGate />
 }
