@@ -4,6 +4,9 @@ import type { ChatItem, Message } from '../../lib/types'
 import { clearPin, copyChatImage, deleteMessage, sendMessage, setPin, updateMessage, uploadChatImage, uploadChatVoice } from './api'
 import { useImageUrls, useMessages, useProfileNames } from './hooks'
 import ChatAvatar from './ChatAvatar'
+import Avatar from './Avatar'
+import VerifiedBadge from '../verified/VerifiedBadge'
+import { useSenderProfiles } from './useSenders'
 import ForwardModal from './ForwardModal'
 import SendImageModal from './SendImageModal'
 import MessageMenu, { type MenuAction } from './MessageMenu'
@@ -62,6 +65,7 @@ export default function ChatView({ chat, chats, myId, myName, online, background
   const recStartRef = useRef(0)
   const urls = useImageUrls(messages)
   const names = useProfileNames(messages)
+  const people = useSenderProfiles(messages)
   const saved = chat.kind === 'saved'
   const direct = chat.kind === 'direct'
   const canPost = chat.kind !== 'channel' || chat.role !== 'member'
@@ -302,7 +306,7 @@ export default function ChatView({ chat, chats, myId, myName, online, background
     <>
       <ChatAvatar chat={chat} size={40} online={online} />
       <div className="min-w-0 text-left">
-        <div className="truncate text-sm font-medium">{chat.name}</div>
+        <div className="flex items-center gap-1 text-sm font-medium"><span className="truncate">{chat.name}</span>{chat.verified && <VerifiedBadge />}</div>
         <div className={`truncate text-xs ${typing || online ? 'text-accent' : 'text-muted'}`}>{status}</div>
       </div>
     </>
@@ -371,22 +375,30 @@ export default function ChatView({ chat, chats, myId, myName, online, background
               {saved ? 'Сохраняй сюда заметки и важное.' : 'Сообщений пока нет. Напиши первым.'}
             </p>
           )}
-          {messages.map((m) => {
+          {messages.map((m, idx) => {
             const mine = m.sender_id === myId
             const original = m.reply_to ? messages.find((x) => x.id === m.reply_to) : null
             const chips = byMessage.get(m.id)
             const ticks = mine && direct
+          const showAvatar = !mine && chat.kind === 'group'
+          const lastOfRun = messages[idx + 1]?.sender_id !== m.sender_id
+          const sender = people[m.sender_id]
             return (
               <div key={m.id} id={`msg-${m.id}`} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}
                 onClick={() => { if (selectMode) toggleSelect(m.id) }}>
-                <div className="relative max-w-[75%]">
+                {showAvatar && (
+              <div className="mr-2 flex w-8 shrink-0 self-end">
+                {lastOfRun && <Avatar name={sender?.display_name ?? names[m.sender_id] ?? '?'} url={sender?.avatar_url ?? null} size={32} />}
+              </div>
+            )}
+            <div className="relative max-w-[75%]">
                   <div onContextMenu={(e) => openMenu(e, m)} onTouchStart={(e) => startPress(e, m)}
                     onTouchEnd={cancelPress} onTouchMove={cancelPress}
                     className={`rounded-2xl px-4 py-2 text-sm select-none md:select-text ${
                       mine ? 'rounded-br-md bg-accent text-on-accent' : 'rounded-bl-md bg-surface'} ${
                       selected.has(m.id) ? 'ring-2 ring-text' : ''}`}>
                     {!mine && chat.kind === 'group' && (
-                      <div className="mb-1 text-xs font-medium text-accent">{names[m.sender_id] ?? '…'}</div>
+                      <div className="mb-1 flex items-center gap-1 text-xs font-medium text-accent"><span className="truncate">{names[m.sender_id] ?? '…'}</span>{sender?.verified && <VerifiedBadge size={12} />}</div>
                     )}
                     {m.forwarded_from && (
                       <div className={`mb-1 text-xs ${mine ? 'text-on-accent/80' : 'text-accent'}`}>Переслано от {m.forwarded_from}</div>

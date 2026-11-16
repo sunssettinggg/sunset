@@ -3,6 +3,8 @@ import { Camera, Loader2 } from 'lucide-react'
 import type { Profile, ProfileChannel } from '../../lib/types'
 import { changeUsername, profileChannel, updateProfile, uploadAvatar } from '../chat/api'
 import Avatar from '../chat/Avatar'
+import VerifiedBadge from '../verified/VerifiedBadge'
+import { useMyVerified } from '../verified/useMyVerified'
 import ChannelCard from '../chat/ChannelCard'
 
 interface Props { me: Profile; onClose: () => void; onSaved: (p: Profile) => void; onOpenChannel: (c: ProfileChannel) => Promise<void> }
@@ -24,6 +26,7 @@ export default function ProfileModal({ me, onClose, onSaved, onOpenChannel }: Pr
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const verified = useMyVerified(me.id)
   const [channel, setChannel] = useState<ProfileChannel | null>(null)
   useEffect(() => { profileChannel(me.id).then(setChannel).catch(() => undefined) }, [me.id, me.channel_id])
 
@@ -98,6 +101,12 @@ export default function ProfileModal({ me, onClose, onSaved, onOpenChannel }: Pr
         )}
         <p className="text-xs text-muted">Коллекционные юзернеймы добавляются и убираются в Настройки → Маркет.</p>
 
+        {verified && (
+          <div className="flex items-start gap-2 rounded-xl bg-surface p-3 text-sm text-muted">
+            <VerifiedBadge size={16} className="mt-0.5" />
+            <span>Ваш аккаунт подтверждён как официальный представителями Sunset.</span>
+          </div>
+        )}
         {error && <p className="text-sm text-pink">{error}</p>}
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className="rounded-xl px-4 py-2 text-sm text-muted transition hover:text-text">Отмена</button>
