@@ -10,6 +10,8 @@ import AuthGate from './features/auth/AuthGate'
 import AccountMenu from './features/auth/AccountMenu'
 import { addAccountFlow, saveAccount, signOutCurrent, switchAccount, useAccountSync } from './features/auth/accounts'
 import MarketPage from './features/market/MarketPage'
+import AdminPage from './features/admin/AdminPage'
+import { useIsAdmin } from './features/admin/useIsAdmin'
 import { endThisDevice, useDeviceHeartbeat } from './features/settings/devices'
 import PremiumPage from './features/premium/PremiumPage'
 import { OPEN_PREMIUM_EVENT } from './features/premium/premium'
@@ -44,6 +46,7 @@ function Messenger({ userId }: { userId: string }) {
   })
   const { chats, loading, unread, last, reload } = useChats(userId, selectedId)
   const online = useOnline(userId, flags.online)
+  const isAdmin = useIsAdmin(userId)
 
   const loadMe = useCallback(() => {
     supabase.from('profiles').select(PROFILE_SELECT).eq('id', userId).single()
@@ -103,14 +106,16 @@ function Messenger({ userId }: { userId: string }) {
   return (
     <div className="flex h-full">
       <div className={view !== 'chats' ? 'flex' : selected ? 'hidden md:flex' : 'flex w-full md:w-auto'}>
-        <NavRail me={me} theme={theme} view={view} totalUnread={totalUnread} onChangeView={setView}
+        <NavRail me={me} theme={theme} view={view} totalUnread={totalUnread} isAdmin={isAdmin} onChangeView={setView}
           onToggleTheme={() => changeTheme(theme === 'dark' ? 'light' : 'dark')}
           onOpenProfile={() => setProfileOpen(true)} onOpenSettings={() => setMenuOpen(true)} />
         {view === 'chats' && <Sidebar myId={me.id} chats={chats} loading={loading} selectedId={selectedId} unread={unread}
           last={last} online={online} muted={muted} onSelect={setSelectedId} onChatCreated={reload}
           onNewChat={() => setNewChatOpen(true)} />}
       </div>
-      {view === 'market' ? (
+      {view === 'admin' && isAdmin ? (
+        <AdminPage me={me} onProfileChanged={loadMe} />
+      ) :view === 'market' ? (
         <MarketPage me={me} onProfileChanged={loadMe} />
       ) : view === 'premium' ? (
         <PremiumPage me={me} onProfileChanged={loadMe} />
