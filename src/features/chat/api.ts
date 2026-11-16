@@ -1,7 +1,8 @@
 import { supabase } from '../../lib/supabase'
+import { canSee, getContacts, maskProfile } from '../privacy/visibility'
 import type { ChatItem, LastMessage, MarketItem, Member, Message, Profile, ProfileChannel, PublicChat, Reaction, Role } from '../../lib/types'
 
-const PROFILE_COLS = 'id, username, display_name, bio, avatar_url, created_at, showcase_number, handles, channel_id, verified'
+const PROFILE_COLS = 'id, username, display_name, bio, avatar_url, created_at, showcase_number, handles, channel_id, verified, avatar_visibility, number_visibility'
 const MESSAGE_COLS = 'id, chat_id, sender_id, body, reply_to, created_at, edited_at, forwarded_from, attachment_path, attachment_type'
 
 export async function searchProfiles(query: string): Promise<Profile[]> {
@@ -9,7 +10,8 @@ export async function searchProfiles(query: string): Promise<Profile[]> {
   if (!q) return []
   const { data, error } = await supabase.rpc('search_profiles', { p_query: q })
   if (error) throw error
-  return data as Profile[]
+  const contacts = await getContacts()
+  return (data as Profile[]).map((p) => maskProfile(p, contacts.has(p.id)))
 }
 
 export const changeUsername = (username: string) => rpcVoid('change_username', { p_new: username })
@@ -58,12 +60,12 @@ export async function listChats(myId: string): Promise<ChatItem[]> {
       role: m.role,
       name: c.title ?? other?.display_name ?? 'Чат',
       username: direct ? (other?.username ?? null) : null,
-      avatarUrl: direct ? (other?.avatar_url ?? null) : c.avatar_url,
+      avatarUrl: direct ? (canSee(other?.avatar_visibility, true) ? (other?.avatar_url ?? null) : null) : c.avatar_url,
       bio: direct ? (other?.bio ?? null) : null,
       otherId: direct ? (other?.id ?? null) : null,
       verified: direct ? (other?.verified ?? false) : false,
       joinedAt: direct ? (other?.created_at ?? null) : null,
-      number: direct ? (other?.showcase_number ?? null) : null,
+      number: direct ? (canSee(other?.number_visibility, true) ? (other?.showcase_number ?? null) : null) : null,
       handles: direct ? (other?.handles ?? []) : [],
       description: c.description,
       isPublic: c.is_public,
@@ -267,15 +269,17 @@ export async function profileChannel(userId: string): Promise<ProfileChannel | n
   return row ? { ...row, members: Number(row.members) } : null
 }
 
-interface MemberRow { user_id: string; role: Role; profiles: { display_name: string; username: string; avatar_url: string | null } }
+interface MemberRow { user_id: string; role: Role; profiles: { display_name: string; username: string; avatar_url: string | null; avatar_visibility?: string | null } }
 
 export async function fetchMembers(chatId: string): Promise<Member[]> {
   const { data, error } = await supabase
-    .from('chat_members').select('user_id, role, profiles!inner(display_name, username, avatar_url)').eq('chat_id', chatId)
+    .from('chat_members').select('user_id, role, profiles!inner(display_name, username, avatar_url, avatar_visibility)').eq('chat_id', chatId)
   if (error) throw error
+  const contacts = await getContacts()
   return ((data ?? []) as unknown as MemberRow[]).map((r) => ({
     user_id: r.user_id, role: r.role, display_name: r.profiles.display_name,
-    username: r.profiles.username, avatar_url: r.profiles.avatar_url,
+    username: r.profiles.username,
+    avatar_url: canSee(r.profiles.avatar_visibility, contacts.has(r.user_id)) ? r.profiles.avatar_url : null,
   }))
 }
 

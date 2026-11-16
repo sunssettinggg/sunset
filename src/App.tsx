@@ -10,6 +10,7 @@ import AuthGate from './features/auth/AuthGate'
 import AccountMenu from './features/auth/AccountMenu'
 import { addAccountFlow, saveAccount, signOutCurrent, switchAccount, useAccountSync } from './features/auth/accounts'
 import MarketPage from './features/market/MarketPage'
+import { endThisDevice, useDeviceHeartbeat } from './features/settings/devices'
 import PremiumPage from './features/premium/PremiumPage'
 import { OPEN_PREMIUM_EVENT } from './features/premium/premium'
 import NavRail, { type View } from './features/chat/NavRail'
@@ -23,7 +24,7 @@ import SettingsModal from './features/settings/SettingsModal'
 import { joinChat } from './features/chat/api'
 import { useChats, useOnline } from './features/chat/hooks'
 
-const PROFILE_SELECT = 'id, username, display_name, bio, avatar_url, created_at, showcase_number, handles, channel_id, verified'
+const PROFILE_SELECT = 'id, username, display_name, bio, avatar_url, created_at, showcase_number, handles, channel_id, verified, avatar_visibility, number_visibility'
 
 function Messenger({ userId }: { userId: string }) {
   const [me, setMe] = useState<Profile | null>(null)
@@ -54,6 +55,7 @@ function Messenger({ userId }: { userId: string }) {
       })
   }, [userId])
   useEffect(() => { loadMe() }, [loadMe])
+  useDeviceHeartbeat(userId)
   useEffect(() => {
     const open = () => setView('premium')
     window.addEventListener(OPEN_PREMIUM_EVENT, open)
@@ -145,10 +147,10 @@ function Messenger({ userId }: { userId: string }) {
         onAddAccount={() => { setMenuOpen(false); void addAccountFlow(me.id) }} />}
       {profileOpen && <ProfileModal me={me} onOpenChannel={openChannel} onClose={() => setProfileOpen(false)}
         onSaved={(p) => { setMe(p); setProfileOpen(false) }} />}
-      {settingsOpen && <SettingsModal me={me} theme={theme} background={background}
+      {settingsOpen && <SettingsModal me={me} onProfileChanged={loadMe} theme={theme} background={background}
         flags={flags} mutedCount={muted.length} onSetTheme={changeTheme} onSetBackground={changeBackground}
         onSetFlag={changeFlag} onEditProfile={() => setProfileOpen(true)}
-        onSignOut={() => void signOutCurrent(me.id)} onClose={() => setSettingsOpen(false)} />}
+        onSignOut={() => void endThisDevice().finally(() => signOutCurrent(me.id))} onClose={() => setSettingsOpen(false)} />}
       {newChatOpen && <NewChatModal onClose={() => setNewChatOpen(false)}
         onDone={(id) => { setNewChatOpen(false); void reload().then(() => setSelectedId(id)) }} />}
     </div>

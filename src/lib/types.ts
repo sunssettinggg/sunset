@@ -3,6 +3,8 @@ export type Role = 'owner' | 'admin' | 'member'
 
 export interface Profile {
   verified?: boolean
+  avatar_visibility?: string
+  number_visibility?: string
   id: string
   username: string
   display_name: string
