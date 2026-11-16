@@ -11,6 +11,8 @@ function friendly(msg: string): string {
   if (msg.includes('already yours')) return 'Это уже ваш лот.'
   if (msg.includes('bad price')) return 'Цена от 1 до 1 000 000 000.'
   if (msg.includes('unlist first')) return 'Сначала снимите лот с продажи.'
+  if (msg.includes('handle limit')) return 'В профиле не больше 10 юзернеймов.'
+  if (msg.includes('username in use')) return 'Этот юзернейм уже занят обычным аккаунтом.'
   return msg
 }
 
@@ -46,7 +48,7 @@ export default function MarketPage({ me, onProfileChanged }: Props) {
     finally { setBusy(false) }
   }
 
-  const applied = (it: MarketItem) => (it.kind === 'number' ? me.showcase_number : me.showcase_handle) === it.value
+  const applied = (it: MarketItem) => (it.kind === 'number' ? me.showcase_number === it.value : me.handles.includes(it.value))
   const shopItems = shop.filter((i) => i.kind === kind)
   const myList = mine.filter((i) => i.kind === kind)
 
@@ -68,6 +70,7 @@ export default function MarketPage({ me, onProfileChanged }: Props) {
         <button className={chip(kind === 'username')} onClick={() => setKind('username')}>Юзернеймы</button>
       </div>
       {error && <p className="text-sm text-pink">{error}</p>}
+      {tab === 'mine' && kind === 'username' && <p className="text-xs text-muted">В профиле: {me.handles.length} из 10</p>}
 
       <div className="space-y-2">
         {tab === 'shop' && shopItems.length === 0 && <p className="text-sm text-muted">Пока ничего не продаётся.</p>}
@@ -95,8 +98,8 @@ export default function MarketPage({ me, onProfileChanged }: Props) {
               ) : (
                 <>
                   {applied(it)
-                    ? <button className={smallBtn} disabled={busy} onClick={() => void run(() => unapplyItem(it.kind))}>Убрать из профиля</button>
-                    : <button className={smallBtn} disabled={busy} onClick={() => void run(() => applyItem(it.id))}>В профиль</button>}
+                    ? <button className={smallBtn} disabled={busy} onClick={() => void run(() => unapplyItem(it.id))}>Убрать из профиля</button>
+                    : <button className={smallBtn} disabled={busy || (it.kind === 'username' && me.handles.length >= 10)} onClick={() => void run(() => applyItem(it.id))}>В профиль</button>}
                   <button className={smallBtn} onClick={() => { setSellId(sellId === it.id ? null : it.id); setPrice('') }}>Продать</button>
                 </>
               )}

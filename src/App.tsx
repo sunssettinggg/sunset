@@ -15,7 +15,7 @@ import ProfileModal from './features/profile/ProfileModal'
 import SettingsModal from './features/settings/SettingsModal'
 import { useChats, useOnline } from './features/chat/hooks'
 
-const PROFILE_SELECT = 'id, username, display_name, bio, avatar_url, created_at, showcase_number, showcase_handle'
+const PROFILE_SELECT = 'id, username, display_name, bio, avatar_url, created_at, showcase_number, handles'
 
 function Messenger({ userId }: { userId: string }) {
   const [me, setMe] = useState<Profile | null>(null)

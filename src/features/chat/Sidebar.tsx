@@ -4,6 +4,7 @@ import type { ChatItem, LastMessage, Profile } from '../../lib/types'
 import { createDirectChat, searchProfiles } from './api'
 import Avatar from './Avatar'
 import ChatAvatar from './ChatAvatar'
+import UsernameLine from './UsernameLine'
 
 interface Props {
   myId: string
@@ -33,7 +34,7 @@ export default function Sidebar({ myId, chats, loading, selectedId, unread, last
   useEffect(() => {
     if (!query.trim()) { setResults([]); return }
     const t = setTimeout(() => {
-      searchProfiles(query, myId).then(setResults).catch((e: Error) => setError(e.message))
+      searchProfiles(query).then(setResults).catch((e: Error) => setError(e.message))
     }, 250)
     return () => clearTimeout(t)
   }, [query, myId])
@@ -72,7 +73,7 @@ export default function Sidebar({ myId, chats, loading, selectedId, unread, last
                 <Avatar name={p.display_name} url={p.avatar_url} />
                 <div className="min-w-0">
                   <div className="truncate text-sm font-medium">{p.display_name}</div>
-                  <div className="truncate text-xs text-muted">@{p.username} · написать</div>
+                  <div className="text-xs"><UsernameLine muted username={p.username} handles={p.handles} /></div>
                 </div>
               </button>
             ))

@@ -6,7 +6,7 @@ export interface Profile {
   avatar_url: string | null
   created_at: string
   showcase_number: string | null
-  showcase_handle: string | null
+  handles: string[]
 }
 
 export interface Message {
@@ -42,7 +42,7 @@ export interface ChatItem {
   otherId: string | null
   joinedAt: string | null
   number: string | null
-  handle: string | null
+  handles: string[]
 }
 
 export interface MarketItem {

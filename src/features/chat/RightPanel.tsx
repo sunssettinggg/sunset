@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Bell, BellOff, Check, Copy, MessageCircle, X } from 'lucide-react'
 import type { ChatItem } from '../../lib/types'
 import ChatAvatar from './ChatAvatar'
+import UsernameLine from './UsernameLine'
 
 interface Props {
   chat: ChatItem
@@ -56,9 +57,13 @@ export default function RightPanel({ chat, online, muted, onToggleMute, onClose 
 
       <div className="divide-y divide-line rounded-xl bg-surface">
         <Row label="Имя" value={chat.name} />
-        {chat.username && <Row label="Username" value={`@${chat.username}`} />}
+        {chat.username && (
+          <div className="px-4 py-3">
+            <div className="text-xs text-muted">Username</div>
+            <div className="text-sm"><UsernameLine username={chat.username} handles={chat.handles} /></div>
+          </div>
+        )}
         {chat.number && <Row label="Номер" value={chat.number} />}
-        {chat.handle && <Row label="Коллекционный юзернейм" value={`@${chat.handle}`} />}
         <Row label="О себе" value={chat.bio || 'Описание не указано.'} />
         {chat.joinedAt && (
           <Row label="В SUNSET с" value={new Date(chat.joinedAt).toLocaleDateString([], { day: 'numeric', month: 'long', year: 'numeric' })} />

@@ -1,17 +1,18 @@
 import { supabase } from '../../lib/supabase'
 import type { ChatItem, LastMessage, MarketItem, Message, Profile, Reaction } from '../../lib/types'
 
-const PROFILE_COLS = 'id, username, display_name, bio, avatar_url, created_at, showcase_number, showcase_handle'
+const PROFILE_COLS = 'id, username, display_name, bio, avatar_url, created_at, showcase_number, handles'
 const MESSAGE_COLS = 'id, chat_id, sender_id, body, reply_to, created_at, edited_at, forwarded_from'
 
-export async function searchProfiles(query: string, myId: string): Promise<Profile[]> {
+export async function searchProfiles(query: string): Promise<Profile[]> {
   const q = query.toLowerCase().replace(/[^a-z0-9_]/g, '')
   if (!q) return []
-  const { data, error } = await supabase
-    .from('profiles').select(PROFILE_COLS).ilike('username', `%${q}%`).neq('id', myId).limit(8)
+  const { data, error } = await supabase.rpc('search_profiles', { p_query: q })
   if (error) throw error
   return data as Profile[]
 }
+
+export const changeUsername = (username: string) => rpcVoid('change_username', { p_new: username })
 
 export async function createDirectChat(otherId: string): Promise<string> {
   const { data, error } = await supabase.rpc('create_direct_chat', { p_other: otherId })
@@ -51,7 +52,7 @@ export async function listChats(myId: string): Promise<ChatItem[]> {
       kind: m.chats.kind as ChatItem['kind'],
       joinedAt: direct ? (other?.created_at ?? null) : null,
       number: direct ? (other?.showcase_number ?? null) : null,
-      handle: direct ? (other?.showcase_handle ?? null) : null,
+      handles: direct ? (other?.handles ?? []) : [],
     }
   })
 }
@@ -201,4 +202,4 @@ export const buyItem = (id: string) => rpcVoid('market_buy', { p_item: id })
 export const listItem = (id: string, price: number) => rpcVoid('market_list', { p_item: id, p_price: price })
 export const unlistItem = (id: string) => rpcVoid('market_unlist', { p_item: id })
 export const applyItem = (id: string) => rpcVoid('market_apply', { p_item: id })
-export const unapplyItem = (kind: MarketItem['kind']) => rpcVoid('market_unapply', { p_kind: kind })
+export const unapplyItem = (id: string) => rpcVoid('market_unapply', { p_item: id })

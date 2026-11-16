@@ -3,6 +3,7 @@ import { ArrowLeft, Bell, ImagePlus, Lock, LogOut, MessageCircle, Sparkles, Star
 import { fileToBackground, type FlagName, type Theme } from '../../lib/prefs'
 import type { Profile } from '../../lib/types'
 import Avatar from '../chat/Avatar'
+import UsernameLine from '../chat/UsernameLine'
 import MarketPage from './MarketPage'
 
 type Page = 'account' | 'notif' | 'privacy' | 'chats' | 'motion' | 'market'
@@ -105,13 +106,12 @@ export default function SettingsModal(p: Props) {
               <Avatar name={p.me.display_name} url={p.me.avatar_url} size={64} />
               <div className="min-w-0">
                 <div className="truncate font-medium">{p.me.display_name}</div>
-                <div className="text-sm text-muted">@{p.me.username}</div>
+                <div className="text-sm"><UsernameLine muted username={p.me.username} handles={p.me.handles} /></div>
               </div>
             </div>
             <div className="divide-y divide-line rounded-xl bg-surface">
               <Info label="О себе" value={p.me.bio || 'Не указано'} />
               {p.me.showcase_number && <Info label="Номер" value={p.me.showcase_number} />}
-              {p.me.showcase_handle && <Info label="Коллекционный юзернейм" value={`@${p.me.showcase_handle}`} />}
             </div>
             <button onClick={() => { p.onClose(); p.onEditProfile() }}
               className="w-full rounded-xl bg-accent py-2.5 text-sm font-semibold text-on-accent transition hover:brightness-110">

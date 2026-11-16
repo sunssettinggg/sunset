@@ -1,15 +1,23 @@
 import { useRef, useState, type ChangeEvent } from 'react'
 import { Camera, Loader2 } from 'lucide-react'
 import type { Profile } from '../../lib/types'
-import { updateProfile, uploadAvatar } from '../chat/api'
+import { changeUsername, updateProfile, uploadAvatar } from '../chat/api'
 import Avatar from '../chat/Avatar'
 
 interface Props { me: Profile; onClose: () => void; onSaved: (p: Profile) => void }
 
 const field = 'w-full rounded-xl bg-surface px-4 py-3 text-sm outline-none ring-1 ring-line focus:ring-2 focus:ring-accent'
+const USERNAME_RE = /^[a-z0-9_]{3,20}$/
+
+function friendly(msg: string): string {
+  if (msg.includes('username taken') || msg.includes('duplicate')) return 'Этот username уже занят.'
+  if (msg.includes('invalid username')) return 'Username: 3–20 символов, только a-z, 0-9 и _.'
+  return msg
+}
 
 export default function ProfileModal({ me, onClose, onSaved }: Props) {
   const [displayName, setDisplayName] = useState(me.display_name)
+  const [username, setUsername] = useState(me.username)
   const [bio, setBio] = useState(me.bio ?? '')
   const [avatarUrl, setAvatarUrl] = useState(me.avatar_url)
   const [busy, setBusy] = useState(false)
@@ -28,15 +36,22 @@ export default function ProfileModal({ me, onClose, onSaved }: Props) {
 
   async function save() {
     const name = displayName.trim()
+    const handle = username.trim().toLowerCase()
     if (!name) { setError('Имя не может быть пустым.'); return }
+    if (!USERNAME_RE.test(handle)) { setError(friendly('invalid username')); return }
     setBusy(true); setError(null)
-    try { onSaved(await updateProfile(me.id, { display_name: name, bio: bio.trim() || null, avatar_url: avatarUrl })) }
-    catch (err) { setError((err as Error).message); setBusy(false) }
+    try {
+      if (handle !== me.username) await changeUsername(handle)
+      onSaved(await updateProfile(me.id, { display_name: name, bio: bio.trim() || null, avatar_url: avatarUrl }))
+    } catch (err) {
+      setError(friendly((err as Error).message))
+      setBusy(false)
+    }
   }
 
   return (
     <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
-      <div className="glass w-full max-w-sm space-y-4 rounded-3xl p-6" onClick={(e) => e.stopPropagation()}>
+      <div className="glass max-h-[90vh] w-full max-w-sm space-y-4 overflow-y-auto rounded-3xl p-6" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-lg font-medium">Профиль</h2>
         <div className="flex items-center gap-4">
           <Avatar name={displayName} url={avatarUrl} size={72} />
@@ -46,19 +61,32 @@ export default function ProfileModal({ me, onClose, onSaved }: Props) {
             <Camera size={16} /> Сменить фото
           </button>
         </div>
-        <div className="text-xs text-muted">@{me.username}</div>
-        {(me.showcase_number || me.showcase_handle) && (
+
+        <input className={field} value={displayName} maxLength={50} onChange={(e) => setDisplayName(e.target.value)} placeholder="Имя" />
+        <div className="flex items-center gap-2 rounded-xl bg-surface px-4 ring-1 ring-line focus-within:ring-2 focus-within:ring-accent">
+          <span className="text-muted">@</span>
+          <input className="w-full bg-transparent py-3 text-sm outline-none" value={username} maxLength={20}
+            onChange={(e) => setUsername(e.target.value.toLowerCase())} placeholder="username" />
+        </div>
+        <textarea className={`${field} h-20 resize-none`} value={bio} maxLength={300} onChange={(e) => setBio(e.target.value)} placeholder="О себе" />
+
+        {(me.showcase_number || me.handles.length > 0) && (
           <div className="divide-y divide-line rounded-xl bg-surface">
             {me.showcase_number && (
               <div className="px-4 py-3"><div className="text-xs text-muted">Номер</div><div className="text-sm">{me.showcase_number}</div></div>
             )}
-            {me.showcase_handle && (
-              <div className="px-4 py-3"><div className="text-xs text-muted">Коллекционный юзернейм</div><div className="text-sm">@{me.showcase_handle}</div></div>
+            {me.handles.length > 0 && (
+              <div className="px-4 py-3">
+                <div className="mb-1 text-xs text-muted">Коллекционные юзернеймы ({me.handles.length}/10)</div>
+                <div className="flex flex-wrap gap-1 text-sm">
+                  {me.handles.map((h) => <span key={h} className="rounded-full bg-accent/15 px-2 py-0.5 text-accent">@{h}</span>)}
+                </div>
+              </div>
             )}
           </div>
         )}
-        <input className={field} value={displayName} maxLength={50} onChange={(e) => setDisplayName(e.target.value)} placeholder="Имя" />
-        <textarea className={`${field} h-24 resize-none`} value={bio} maxLength={300} onChange={(e) => setBio(e.target.value)} placeholder="О себе" />
+        <p className="text-xs text-muted">Коллекционные юзернеймы добавляются и убираются в Настройки → Маркет.</p>
+
         {error && <p className="text-sm text-pink">{error}</p>}
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className="rounded-xl px-4 py-2 text-sm text-muted transition hover:text-text">Отмена</button>
