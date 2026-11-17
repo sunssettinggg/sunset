@@ -160,7 +160,7 @@ export default function SettingsModal(p: Props) {
               <Avatar name={p.me.display_name} url={p.me.avatar_url} size={64} />
               <div className="min-w-0">
                 <div className="truncate font-medium">{p.me.display_name}</div>
-                <div className="text-sm"><UsernameLine muted username={p.me.username} handles={p.me.handles} /></div>
+                <div className="text-sm"><UsernameLine muted userId={p.me.id} username={p.me.username} handles={p.me.handles} /></div>
               </div>
             </div>
             <div className="divide-y divide-line rounded-xl bg-surface">

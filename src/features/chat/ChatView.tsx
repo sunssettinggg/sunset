@@ -7,6 +7,7 @@ import ChatAvatar from './ChatAvatar'
 import Avatar from './Avatar'
 import VerifiedBadge from '../verified/VerifiedBadge'
 import PremiumBadge from '../premium/PremiumBadge'
+import ColoredName from '../premium/ColoredName'
 import { useSenderProfiles } from './useSenders'
 import ForwardModal from './ForwardModal'
 import SendImageModal from './SendImageModal'
@@ -318,7 +319,7 @@ export default function ChatView({ chat, chats, myId, myName, online, background
     <>
       <ChatAvatar chat={chat} size={40} online={online} />
       <div className="min-w-0 text-left">
-        <div className="flex items-center gap-1 text-sm font-medium"><span className="truncate">{chat.name}</span>{chat.verified && <VerifiedBadge />}<PremiumBadge userId={chat.otherId} /></div>
+        <div className="flex items-center gap-1 text-sm font-medium"><ColoredName userId={chat.otherId} name={chat.name} className="truncate" />{chat.verified && <VerifiedBadge />}<PremiumBadge userId={chat.otherId} /></div>
         <div className={`truncate text-xs ${typing || online ? 'text-accent' : 'text-muted'}`}>{status}</div>
       </div>
     </>
@@ -410,7 +411,7 @@ export default function ChatView({ chat, chats, myId, myName, online, background
                       mine ? 'rounded-br-md bg-accent text-on-accent' : 'rounded-bl-md bg-surface'} ${
                       selected.has(m.id) ? 'ring-2 ring-text' : ''}`}>
                     {!mine && chat.kind === 'group' && (
-                      <div className="mb-1 flex items-center gap-1 text-xs font-medium text-accent"><span className="truncate">{names[m.sender_id] ?? '…'}</span>{sender?.verified && <VerifiedBadge size={12} />}<PremiumBadge userId={m.sender_id} size={12} /></div>
+                      <div className="mb-1 flex items-center gap-1 text-xs font-medium text-accent"><ColoredName userId={m.sender_id} name={names[m.sender_id] ?? '…'} className="truncate" />{sender?.verified && <VerifiedBadge size={12} />}<PremiumBadge userId={m.sender_id} size={12} /></div>
                     )}
                     {m.forwarded_from && (
                       <div className={`mb-1 text-xs ${mine ? 'text-on-accent/80' : 'text-accent'}`}>Переслано от {m.forwarded_from}</div>

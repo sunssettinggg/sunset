@@ -7,6 +7,7 @@ import ChatAvatar from './ChatAvatar'
 import UsernameLine from './UsernameLine'
 import VerifiedBadge from '../verified/VerifiedBadge'
 import PremiumBadge from '../premium/PremiumBadge'
+import ColoredName, { ColorRing } from '../premium/ColoredName'
 import GiftSendModal from '../market/GiftSendModal'
 import ProfileGifts from '../market/ProfileGifts'
 import CollectibleModal from '../market/CollectibleModal'
@@ -76,15 +77,15 @@ export default function RightPanel({ chat, myId, online, muted, onToggleMute, on
       </div>
 
       <div className="flex flex-col items-center gap-1 pt-1">
-        <div className="rounded-full bg-gradient-to-tr from-accent to-pink p-[3px]">
+        <ColorRing userId={chat.otherId}>
           <div className="rounded-full bg-bg2 p-1">
             <ChatAvatar chat={chat} size={104} online={online} />
           </div>
-        </div>
+        </ColorRing>
         <div className="mt-2 flex items-center justify-center gap-1.5 text-xl font-bold">
-          <span className="break-words">{chat.name}</span>{chat.verified && <VerifiedBadge size={18} />}<PremiumBadge userId={chat.otherId} size={18} />
+          <ColoredName userId={chat.otherId} name={chat.name} className="break-words" />{chat.verified && <VerifiedBadge size={18} />}<PremiumBadge userId={chat.otherId} size={18} />
         </div>
-        {chat.username && <div className="text-sm text-muted"><UsernameLine muted username={chat.username} handles={chat.handles}
+        {chat.username && <div className="text-sm text-muted"><UsernameLine muted userId={chat.otherId} username={chat.username} handles={chat.handles}
           onHandleClick={(h) => setCollectible({ kind: 'username', value: h })} /></div>}
         <div className={`text-xs ${online ? 'text-accent' : 'text-muted'}`}>{online ? 'в сети' : 'не в сети'}</div>
       </div>

@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
-import { Camera, Info, Loader2, Phone, X } from 'lucide-react'
+import { Camera, ChevronRight, Info, Loader2, Palette, Phone, X } from 'lucide-react'
 import type { Profile, ProfileChannel } from '../../lib/types'
 import { changeUsername, profileChannel, updateProfile, uploadAvatar } from '../chat/api'
 import Avatar from '../chat/Avatar'
 import VerifiedBadge from '../verified/VerifiedBadge'
 import PremiumBadge from '../premium/PremiumBadge'
+import { useColors } from '../premium/colors'
+import ProfileStyleModal from './ProfileStyleModal'
 import { useMyVerified } from '../verified/useMyVerified'
 import ChannelCard from '../chat/ChannelCard'
 import ProfileGifts from '../market/ProfileGifts'
@@ -39,6 +41,8 @@ export default function ProfileModal({ me, onClose, onSaved, onOpenChannel }: Pr
   const [error, setError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const verified = useMyVerified(me.id)
+  const colors = useColors(me.id)
+  const [styleOpen, setStyleOpen] = useState(false)
   const [collectible, setCollectible] = useState<{ kind: CollectibleKind; value: string } | null>(null)
   const [channel, setChannel] = useState<ProfileChannel | null>(null)
   useEffect(() => { profileChannel(me.id).then(setChannel).catch(() => undefined) }, [me.id, me.channel_id])
@@ -79,7 +83,8 @@ export default function ProfileModal({ me, onClose, onSaved, onOpenChannel }: Pr
         <div className="flex flex-col items-center gap-2">
           <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => void onFile(e)} />
           <button onClick={() => fileRef.current?.click()} disabled={busy} title="Сменить фото" className="group relative rounded-full">
-            <span className="block rounded-full bg-gradient-to-tr from-accent to-pink p-[3px]">
+            <span className="block rounded-full bg-gradient-to-tr from-accent to-pink p-[3px]"
+              style={colors?.profile ? { backgroundImage: 'none', backgroundColor: colors.profile } : undefined}>
               <span className="block rounded-full bg-bg2 p-1"><Avatar name={displayName} url={avatarUrl} size={104} /></span>
             </span>
             <span className="absolute bottom-1 right-1 flex h-8 w-8 items-center justify-center rounded-full bg-accent text-on-accent shadow transition group-hover:brightness-110">
@@ -88,7 +93,7 @@ export default function ProfileModal({ me, onClose, onSaved, onOpenChannel }: Pr
           </button>
           <div className="flex w-full items-center justify-center gap-1.5">
             <input value={displayName} maxLength={50} onChange={(e) => setDisplayName(e.target.value)} placeholder="Имя"
-              size={Math.max(displayName.length, 3)} style={{ minWidth: '3ch', maxWidth: '16rem' }}
+              size={Math.max(displayName.length, 3)} style={{ minWidth: '3ch', maxWidth: '16rem', color: colors?.name ?? undefined }}
               className="bg-transparent text-center text-xl font-bold outline-none placeholder:text-muted" />
             {verified && <VerifiedBadge size={18} />}<PremiumBadge userId={me.id} size={18} />
           </div>
@@ -96,7 +101,7 @@ export default function ProfileModal({ me, onClose, onSaved, onOpenChannel }: Pr
             <span className="flex items-center">
               <span>@</span>
               <input value={username} maxLength={20} onChange={(e) => setUsername(e.target.value.toLowerCase())} placeholder="username"
-                size={Math.max(username.length, 3)} style={{ minWidth: '3ch', maxWidth: '12rem' }}
+                size={Math.max(username.length, 3)} style={{ minWidth: '3ch', maxWidth: '12rem', color: colors?.username ?? undefined }}
                 className="bg-transparent text-left outline-none placeholder:text-muted" />
             </span>
             {me.handles.map((h) => (
@@ -113,6 +118,13 @@ export default function ProfileModal({ me, onClose, onSaved, onOpenChannel }: Pr
               className="h-16 w-full resize-none bg-transparent text-sm outline-none placeholder:text-muted" />
           </div>
         </Card>
+
+        <button type="button" onClick={() => setStyleOpen(true)}
+          className="flex w-full items-center gap-3 rounded-2xl bg-surface px-4 py-3 text-left text-sm transition hover:brightness-110">
+          <Palette size={16} className="text-accent" />
+          <span className="flex-1">Оформление профиля</span>
+          <ChevronRight size={16} className="text-muted" />
+        </button>
 
         {me.showcase_number && (
           <Card title="Номер">
@@ -150,6 +162,7 @@ export default function ProfileModal({ me, onClose, onSaved, onOpenChannel }: Pr
           </button>
         </div>
       </div>
+      {styleOpen && <ProfileStyleModal userId={me.id} onClose={() => setStyleOpen(false)} />}
       {collectible && <CollectibleModal kind={collectible.kind} value={collectible.value} onClose={() => setCollectible(null)} />}
     </div>
   )
