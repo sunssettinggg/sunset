@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ClipboardEvent, type FormEvent, type MouseEvent, type TouchEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ClipboardEvent, type FormEvent, type MouseEvent, type TouchEvent, useLayoutEffect } from 'react'
 import { ArrowLeft, Check, CheckCheck, Copy, Forward, ImagePlus, Mic, PanelRight, Paperclip, Pencil, Pin, Reply, SendHorizontal, Trash2, X } from 'lucide-react'
 import type { ChatItem, Message } from '../../lib/types'
 import { clearPin, copyChatImage, deleteMessage, sendMessage, setPin, updateMessage, uploadChatImage, uploadChatVoice } from './api'
@@ -71,7 +71,18 @@ export default function ChatView({ chat, chats, myId, myName, online, background
   const direct = chat.kind === 'direct'
   const canPost = chat.kind !== 'channel' || chat.role !== 'member'
 
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages.length])
+  const firstScrollDone = useRef(false)
+  useLayoutEffect(() => {
+    if (messages.length === 0) return
+    if (!firstScrollDone.current) {
+      // первое открытие чата: сразу внизу, без анимации сверху вниз
+      firstScrollDone.current = true
+      endRef.current?.scrollIntoView({ behavior: 'auto' })
+      const t = setTimeout(() => endRef.current?.scrollIntoView({ behavior: 'auto' }), 150)
+      return () => clearTimeout(t)
+    }
+    endRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages.length])
 
   useEffect(() => () => {
     clearInterval(recTimerRef.current)

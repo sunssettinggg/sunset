@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Bell, BellOff, Copy, Lock, LogOut, Trash2, X } from 'lucide-react'
 import type { ChatItem, Member, Profile } from '../../lib/types'
 import { plural } from '../../lib/format'
+import { supabase } from '../../lib/supabase'
 import { addMember, fetchMembers, getInviteCode, removeMember, searchProfiles, setProfileChannel } from './api'
 import Avatar from './Avatar'
 import ChatAvatar from './ChatAvatar'
@@ -47,6 +48,18 @@ export default function GroupPanel({ chat, me, muted, onToggleMute, onProfileCha
   async function run(fn: () => Promise<void>) {
     setError(null)
     try { await fn() } catch (e) { fail(e) }
+  }
+
+  async function deleteChat() {
+    const what = isChannel ? 'канал' : 'группу'
+    if (!window.confirm(`Удалить ${what} «${chat.name}» вместе со всеми сообщениями? Это нельзя отменить.`)) return
+    await run(async () => {
+      const { error: err } = await supabase.rpc('delete_chat', { p_chat: chat.id })
+      if (err) throw new Error(err.message === 'not allowed' ? 'Удалять может только владелец.' : err.message)
+      await onChanged()
+      onProfileChanged()
+      onLeft()
+    })
   }
 
   const memberLabel = isChannel ? plural(members.length, ['подписчик', 'подписчика', 'подписчиков']) : plural(members.length, ['участник', 'участника', 'участников'])
@@ -133,6 +146,12 @@ export default function GroupPanel({ chat, me, muted, onToggleMute, onProfileCha
             </div>
           ))}
         </div>
+      )}
+
+      {chat.role === 'owner' && (
+        <button className="rounded-xl bg-surface py-2.5 text-sm text-pink transition hover:brightness-110" onClick={() => void deleteChat()}>
+          {isChannel ? 'Удалить канал' : 'Удалить группу'}
+        </button>
       )}
       {error && <p className="text-xs text-pink">{error}</p>}
     </aside>
