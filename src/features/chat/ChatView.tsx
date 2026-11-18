@@ -8,6 +8,10 @@ import Avatar from './Avatar'
 import VerifiedBadge from '../verified/VerifiedBadge'
 import PremiumBadge from '../premium/PremiumBadge'
 import ColoredName from '../premium/ColoredName'
+import { useColorMap } from '../premium/colors'
+import { readableOn } from '../../lib/color'
+import { useWallpaper } from '../wallpaper/wallpapers'
+import type { CSSProperties } from 'react'
 import { useSenderProfiles } from './useSenders'
 import ForwardModal from './ForwardModal'
 import SendImageModal from './SendImageModal'
@@ -68,6 +72,9 @@ export default function ChatView({ chat, chats, myId, myName, online, background
   const urls = useImageUrls(messages)
   const names = useProfileNames(messages)
   const people = useSenderProfiles(messages)
+  const senderIds = useMemo(() => [...new Set(messages.map((m) => m.sender_id))], [messages])
+  const colorOf = useColorMap(senderIds)
+  const wallpaper = useWallpaper(chat.id)
   const saved = chat.kind === 'saved'
   const direct = chat.kind === 'direct'
   const canPost = chat.kind !== 'channel' || chat.role !== 'member'
@@ -378,8 +385,9 @@ export default function ChatView({ chat, chats, myId, myName, online, background
       )}
 
       <div className="relative flex-1 overflow-hidden">
-        {background && <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${background})` }} />}
-        {background && <div className="absolute inset-0 bg-bg/40" />}
+        {wallpaper && <div className="absolute inset-0" style={{ background: wallpaper }} />}
+        {!wallpaper && background && <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${background})` }} />}
+        {!wallpaper && background && <div className="absolute inset-0 bg-bg/40" />}
         <div className="relative h-full space-y-3 overflow-y-auto p-4">
           {loading && <div className="h-10 w-48 animate-pulse rounded-2xl bg-surface" />}
           {error && <p className="text-sm text-pink">Не удалось загрузить: {error}</p>}
@@ -390,6 +398,8 @@ export default function ChatView({ chat, chats, myId, myName, online, background
           )}
           {messages.map((m, idx) => {
             const mine = m.sender_id === myId
+            const bc = colorOf(m.sender_id)?.bubble ?? null
+            const own = mine || bc !== null
             const original = m.reply_to ? messages.find((x) => x.id === m.reply_to) : null
             const chips = byMessage.get(m.id)
             const ticks = mine && direct
@@ -407,18 +417,19 @@ export default function ChatView({ chat, chats, myId, myName, online, background
             <div className="relative max-w-[75%]">
                   <div onContextMenu={(e) => openMenu(e, m)} onTouchStart={(e) => startPress(e, m)}
                     onTouchEnd={cancelPress} onTouchMove={cancelPress}
+                    style={bc ? ({ '--accent': bc, '--on-accent': readableOn(bc) } as CSSProperties) : undefined}
                     className={`rounded-2xl px-4 py-2 text-sm select-none md:select-text ${
-                      mine ? 'rounded-br-md bg-accent text-on-accent' : 'rounded-bl-md bg-surface'} ${
+                      (mine ? 'rounded-br-md' : 'rounded-bl-md') + (own ? ' bg-accent text-on-accent' : ' bg-surface')} ${
                       selected.has(m.id) ? 'ring-2 ring-text' : ''}`}>
                     {!mine && chat.kind === 'group' && (
-                      <div className="mb-1 flex items-center gap-1 text-xs font-medium text-accent"><ColoredName userId={m.sender_id} name={names[m.sender_id] ?? '…'} className="truncate" />{sender?.verified && <VerifiedBadge size={12} />}<PremiumBadge userId={m.sender_id} size={12} /></div>
+                      <div className={`mb-1 flex items-center gap-1 text-xs font-medium ${bc ? 'text-on-accent' : 'text-accent'}`}><ColoredName userId={m.sender_id} name={names[m.sender_id] ?? '…'} className="truncate" />{sender?.verified && <VerifiedBadge size={12} />}<PremiumBadge userId={m.sender_id} size={12} /></div>
                     )}
                     {m.forwarded_from && (
-                      <div className={`mb-1 text-xs ${mine ? 'text-on-accent/80' : 'text-accent'}`}>Переслано от {m.forwarded_from}</div>
+                      <div className={`mb-1 text-xs ${own ? 'text-on-accent/80' : 'text-accent'}`}>Переслано от {m.forwarded_from}</div>
                     )}
                     {m.reply_to && (
                       <div className={`mb-1 truncate border-l-2 pl-2 text-xs ${
-                        mine ? 'border-on-accent/50 text-on-accent/80' : 'border-accent text-muted'}`}>
+                        own ? 'border-on-accent/50 text-on-accent/80' : 'border-accent text-muted'}`}>
                         {original?.body
                           ?? (original?.attachment_type === 'voice' ? '🎤 Голосовое'
                             : original?.attachment_path ? '📷 Фото' : 'Сообщение')}
@@ -431,7 +442,7 @@ export default function ChatView({ chat, chats, myId, myName, online, background
                             m.attachment_type === 'voice' ? 'h-10 w-52' : 'h-40 w-56'}`} />
                         )
                         : m.attachment_type === 'voice'
-                          ? <VoiceMessage src={urls[m.attachment_path]} mine={mine} />
+                          ? <VoiceMessage src={urls[m.attachment_path]} mine={own} />
                           : m.attachment_type === 'file'
                             ? (
                               <a href={urls[m.attachment_path]} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}
@@ -447,7 +458,7 @@ export default function ChatView({ chat, chats, myId, myName, online, background
                                 onClick={(e) => { e.stopPropagation(); if (!selectMode) setViewer(urls[m.attachment_path!]) }} />
                     )}
                     {m.body && <p className="break-words whitespace-pre-wrap">{m.body}</p>}
-                    <div className={`mt-1 flex items-center justify-end gap-1 text-[10px] ${mine ? 'text-on-accent/70' : 'text-muted'}`}>
+                    <div className={`mt-1 flex items-center justify-end gap-1 text-[10px] ${own ? 'text-on-accent/70' : 'text-muted'}`}>
                       {m.edited_at && <span>изменено</span>}
                       {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       {ticks && (isRead(m) ? <CheckCheck size={12} /> : <Check size={12} />)}

@@ -4,6 +4,7 @@ import { fileToBackground, type FlagName, type Theme } from '../../lib/prefs'
 import type { Profile } from '../../lib/types'
 import Avatar from '../chat/Avatar'
 import UsernameLine from '../chat/UsernameLine'
+import AccentPicker from './AccentPicker'
 import { setPrivacy, VISIBILITY_LABELS, type Visibility } from '../privacy/visibility'
 import { deviceId, endOtherSessions, listSessions, type DeviceSession } from './devices'
 
@@ -234,6 +235,7 @@ export default function SettingsModal(p: Props) {
                 <button className={seg('light')} onClick={() => p.onSetTheme('light')}>Светлая</button>
               </div>
             </div>
+            <AccentPicker />
             <div>
               <div className="mb-2 px-1 text-xs text-muted">Фон чата</div>
               <div className="mb-2 h-24 rounded-xl bg-surface bg-cover bg-center"

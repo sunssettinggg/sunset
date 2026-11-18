@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { ArrowLeft, Bell, BellOff, CalendarDays, Check, Copy, Gift, Info, MessageCircle, Phone } from 'lucide-react'
+import { ArrowLeft, Bell, BellOff, CalendarDays, Check, Copy, Gift, Image as ImageIcon, Info, MessageCircle, Phone } from 'lucide-react'
 import type { ChatItem, ProfileChannel } from '../../lib/types'
 import { profileChannel } from './api'
 import ChannelCard from './ChannelCard'
@@ -11,6 +11,7 @@ import ColoredName, { ColorRing } from '../premium/ColoredName'
 import GiftSendModal from '../market/GiftSendModal'
 import ProfileGifts from '../market/ProfileGifts'
 import CollectibleModal from '../market/CollectibleModal'
+import WallpaperModal from '../wallpaper/WallpaperModal'
 import type { CollectibleKind } from '../market/collectibles'
 
 interface Props {
@@ -47,6 +48,7 @@ export default function RightPanel({ chat, myId, online, muted, onToggleMute, on
   const [copied, setCopied] = useState(false)
   const [channel, setChannel] = useState<ProfileChannel | null>(null)
   const [giftOpen, setGiftOpen] = useState(false)
+  const [wallOpen, setWallOpen] = useState(false)
   const [giftsKey, setGiftsKey] = useState(0)
   const [collectible, setCollectible] = useState<{ kind: CollectibleKind; value: string } | null>(null)
 
@@ -101,6 +103,9 @@ export default function RightPanel({ chat, myId, online, muted, onToggleMute, on
       {chat.otherId && (
         <button onClick={() => setGiftOpen(true)} className={`${pill} flex-none`}><Gift size={16} />Подарить подарок</button>
       )}
+      {chat.kind === 'direct' && (
+        <button onClick={() => setWallOpen(true)} className={`${pill} flex-none`}><ImageIcon size={16} />Обои чата</button>
+      )}
 
       <Card title="О себе">
         <Line icon={<Info size={16} />}>{chat.bio || 'Описание не указано.'}</Line>
@@ -140,6 +145,7 @@ export default function RightPanel({ chat, myId, online, muted, onToggleMute, on
       )}
 
       {collectible && <CollectibleModal kind={collectible.kind} value={collectible.value} onClose={() => setCollectible(null)} />}
+      {wallOpen && <WallpaperModal chatId={chat.id} myId={myId} onClose={() => setWallOpen(false)} />}
       {giftOpen && chat.otherId && (
         <GiftSendModal myId={myId} toId={chat.otherId} toName={chat.name} chatId={chat.id}
           onClose={() => setGiftOpen(false)} onSent={() => setGiftsKey((k) => k + 1)} />

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Lock } from 'lucide-react'
 import { OPEN_PREMIUM_EVENT, usePremium } from '../premium/premium'
-import { refreshColors, setProfileColors, useColors, type ProfileColors } from '../premium/colors'
+import { refreshColors, setBubbleColor, setProfileColors, useColors, type ProfileColors } from '../premium/colors'
 
 const SWATCHES = ['#f6a23a', '#ff6b6b', '#ff7eb6', '#c084fc', '#7c8cff', '#38bdf8', '#2dd4bf', '#4ade80', '#facc15', '#fb923c']
 
@@ -10,18 +10,20 @@ const SLOTS: { key: Slot; label: string }[] = [
   { key: 'name', label: 'Цвет имени' },
   { key: 'username', label: 'Цвет юзернейма' },
   { key: 'profile', label: 'Цвет профиля' },
+  { key: 'bubble', label: 'Цвет ваших сообщений' },
 ]
 
 export default function ColorSettings({ userId }: { userId: string }) {
   const premium = usePremium(userId)
-  const current = useColors(userId) ?? { name: null, username: null, profile: null }
+  const current: ProfileColors = useColors(userId) ?? { name: null, username: null, profile: null, bubble: null }
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function pick(slot: Slot, value: string | null) {
     setBusy(true); setError(null)
     try {
-      await setProfileColors({ ...current, [slot]: value })
+      if (slot === 'bubble') await setBubbleColor(value)
+      else await setProfileColors({ name: current.name, username: current.username, profile: current.profile, [slot]: value })
       refreshColors(userId)
     } catch (e) {
       const m = (e as Error).message
@@ -34,7 +36,7 @@ export default function ColorSettings({ userId }: { userId: string }) {
       <button type="button" onClick={() => window.dispatchEvent(new CustomEvent(OPEN_PREMIUM_EVENT))}
         className="flex w-full items-center gap-3 text-left text-sm text-muted transition hover:text-text">
         <Lock size={16} className="shrink-0" />
-        <span>Цвета имени, юзернейма и профиля доступны с Premium.</span>
+        <span>Цвета имени, юзернейма, профиля и сообщений доступны с Premium.</span>
       </button>
     )
   }

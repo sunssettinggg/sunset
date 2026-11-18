@@ -18,7 +18,8 @@ interface Perk { icon: ReactNode; title: string; text: string; ready: boolean }
 const PERKS: Perk[] = [
   { icon: <Star size={20} />, title: 'Значок Premium', text: 'Звёздочка рядом с именем. Нажмите на неё, и все увидят, что вы подписчик Premium.', ready: true },
   { icon: <Palette size={20} />, title: 'Цвета имени и профиля', text: 'Свой цвет имени, юзернейма и профиля. Их видят все, кто открывает ваш профиль или переписку с вами.', ready: true },
-  { icon: <ImageIcon size={20} />, title: 'Обои для вас и собеседника', text: 'Установите обои в личном чате для себя и собеседника.', ready: false },
+  { icon: <Palette size={20} />, title: 'Цвет сообщений', text: 'Свой цвет пузырей ваших сообщений. Собеседники видят его в переписке.', ready: true },
+  { icon: <ImageIcon size={20} />, title: 'Обои для вас и собеседника', text: 'Установите обои в личном чате для себя и собеседника.', ready: true },
   { icon: <Lock size={20} />, title: 'Ограничение сообщений', text: 'Ограничьте входящие сообщения от незнакомых людей или сделайте их платными.', ready: false },
   { icon: <MessagesSquare size={20} />, title: 'Управление чатами', text: 'Папка по умолчанию, автоархивация и скрытие новых чатов с неконтактами.', ready: false },
 ]

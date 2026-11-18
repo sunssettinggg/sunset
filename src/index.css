@@ -34,3 +34,13 @@ body { background: var(--bg); color: var(--text); font-family: var(--font-sans);
   transition: none !important;
   animation: none !important;
 }
+
+/* Цветовые схемы (переключатель в Настройках чатов) */
+:root[data-accent="ocean"] { --accent: #5cb8f2; --on-accent: #07161f; }
+:root[data-accent="forest"] { --accent: #6fd08c; --on-accent: #08170d; }
+:root[data-accent="violet"] { --accent: #b79cff; --on-accent: #130d24; }
+:root[data-accent="amber"] { --accent: #f6b94a; --on-accent: #1d1304; }
+:root[data-theme="light"][data-accent="ocean"] { --accent: #1f7fc0; --on-accent: #ffffff; }
+:root[data-theme="light"][data-accent="forest"] { --accent: #2f8f55; --on-accent: #ffffff; }
+:root[data-theme="light"][data-accent="violet"] { --accent: #7a55d6; --on-accent: #ffffff; }
+:root[data-theme="light"][data-accent="amber"] { --accent: #c7821a; --on-accent: #ffffff; }
