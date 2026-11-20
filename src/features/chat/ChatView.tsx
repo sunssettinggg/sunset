@@ -17,8 +17,31 @@ import ForwardModal from './ForwardModal'
 import SendImageModal from './SendImageModal'
 import MessageMenu, { type MenuAction } from './MessageMenu'
 import VoiceMessage from './VoiceMessage'
+import { Fragment } from 'react'
+import './chat-anim.css'
 
 const EMOJIS = ['👍', '❤️', '😂', '🔥', '😮', '😢']
+
+const dayKey = (iso: string) => {
+  const d = new Date(iso)
+  return d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate()
+}
+
+function dayLabel(iso: string): string {
+  const d = new Date(iso)
+  const now = new Date()
+  const yesterday = new Date(now)
+  yesterday.setDate(now.getDate() - 1)
+  if (d.toDateString() === now.toDateString()) return 'Сегодня'
+  if (d.toDateString() === yesterday.toDateString()) return 'Вчера'
+  const opts: Intl.DateTimeFormatOptions = d.getFullYear() === now.getFullYear()
+    ? { day: 'numeric', month: 'long' }
+    : { day: 'numeric', month: 'long', year: 'numeric' }
+  return d.toLocaleDateString('ru-RU', opts)
+}
+
+// Сообщения одного автора ближе пяти минут друг к другу склеиваются в серию.
+const GROUP_GAP_MS = 5 * 60 * 1000
 
 interface Props {
   chat: ChatItem
@@ -78,6 +101,19 @@ export default function ChatView({ chat, chats, myId, myName, online, background
   const saved = chat.kind === 'saved'
   const direct = chat.kind === 'direct'
   const canPost = chat.kind !== 'channel' || chat.role !== 'member'
+
+  // Новые сообщения появляются с лёгкой анимацией (история при открытии чата не анимируется).
+  const knownIds = useRef<Set<string> | null>(null)
+  useLayoutEffect(() => {
+    if (loading) return
+    const known = knownIds.current
+    if (known === null) { knownIds.current = new Set(messages.map((m) => m.id)); return }
+    for (const m of messages) {
+      if (known.has(m.id)) continue
+      known.add(m.id)
+      document.getElementById('msg-' + m.id)?.classList.add('msg-in')
+    }
+  }, [messages, loading])
 
   const firstScrollDone = useRef(false)
   useLayoutEffect(() => {
@@ -388,7 +424,7 @@ export default function ChatView({ chat, chats, myId, myName, online, background
         {wallpaper && <div className="absolute inset-0" style={{ background: wallpaper }} />}
         {!wallpaper && background && <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${background})` }} />}
         {!wallpaper && background && <div className="absolute inset-0 bg-bg/40" />}
-        <div className="relative h-full space-y-3 overflow-y-auto p-4">
+        <div className="relative h-full overflow-y-auto p-4">
           {loading && <div className="h-10 w-48 animate-pulse rounded-2xl bg-surface" />}
           {error && <p className="text-sm text-pink">Не удалось загрузить: {error}</p>}
           {!loading && !error && messages.length === 0 && (
@@ -403,11 +439,25 @@ export default function ChatView({ chat, chats, myId, myName, online, background
             const original = m.reply_to ? messages.find((x) => x.id === m.reply_to) : null
             const chips = byMessage.get(m.id)
             const ticks = mine && direct
+          const prevMsg = idx > 0 ? messages[idx - 1] : undefined
+          const nextMsg = messages[idx + 1]
+          const newDay = !prevMsg || dayKey(prevMsg.created_at) !== dayKey(m.created_at)
+          const sameAsPrev = !!prevMsg && !newDay && prevMsg.sender_id === m.sender_id
+            && Date.parse(m.created_at) - Date.parse(prevMsg.created_at) < GROUP_GAP_MS
+          const lastInRun = !nextMsg || nextMsg.sender_id !== m.sender_id
+            || dayKey(nextMsg.created_at) !== dayKey(m.created_at)
+            || Date.parse(nextMsg.created_at) - Date.parse(m.created_at) >= GROUP_GAP_MS
           const showAvatar = !mine && chat.kind === 'group'
-          const lastOfRun = messages[idx + 1]?.sender_id !== m.sender_id
+          const lastOfRun = lastInRun
           const sender = people[m.sender_id]
             return (
-              <div key={m.id} id={`msg-${m.id}`} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}
+              <Fragment key={m.id}>
+          {newDay && (
+            <div className="mt-4 mb-1 flex justify-center">
+              <span className="rounded-full bg-bg2/90 px-3 py-1 text-xs text-muted">{dayLabel(m.created_at)}</span>
+            </div>
+          )}
+          <div id={`msg-${m.id}`} className={`flex ${sameAsPrev ? 'mt-0.5' : 'mt-3'} ${mine ? 'justify-end' : 'justify-start'}`}
                 onClick={() => { if (selectMode) toggleSelect(m.id) }}>
                 {showAvatar && (
               <div className="mr-2 flex w-8 shrink-0 self-end">
@@ -419,9 +469,9 @@ export default function ChatView({ chat, chats, myId, myName, online, background
                     onTouchEnd={cancelPress} onTouchMove={cancelPress}
                     style={bc ? ({ '--accent': bc, '--on-accent': readableOn(bc) } as CSSProperties) : undefined}
                     className={`rounded-2xl px-4 py-2 text-sm select-none md:select-text ${
-                      (mine ? 'rounded-br-md' : 'rounded-bl-md') + (own ? ' bg-accent text-on-accent' : ' bg-surface')} ${
+                      (mine ? (lastInRun ? 'rounded-br-md' : '') : (lastInRun ? 'rounded-bl-md' : '')) + (own ? ' bg-accent text-on-accent' : ' bg-surface')} ${
                       selected.has(m.id) ? 'ring-2 ring-text' : ''}`}>
-                    {!mine && chat.kind === 'group' && (
+                    {!mine && chat.kind === 'group' && !sameAsPrev && (
                       <div className={`mb-1 flex items-center gap-1 text-xs font-medium ${bc ? 'text-on-accent' : 'text-accent'}`}><ColoredName userId={m.sender_id} name={names[m.sender_id] ?? '…'} className="truncate" />{sender?.verified && <VerifiedBadge size={12} />}<PremiumBadge userId={m.sender_id} size={12} /></div>
                     )}
                     {m.forwarded_from && (
@@ -468,7 +518,7 @@ export default function ChatView({ chat, chats, myId, myName, online, background
                     <div className={`mt-1 flex flex-wrap gap-1 ${mine ? 'justify-end' : ''}`}>
                       {[...chips].map(([emoji, users]) => (
                         <button key={emoji} onClick={() => void toggleReaction(m.id, emoji)}
-                          className={`rounded-full px-2 py-0.5 text-xs transition ${
+                          className={`chip-pop rounded-full px-2 py-0.5 text-xs transition ${
                             users.includes(myId) ? 'bg-accent/30 ring-1 ring-accent' : 'bg-surface'}`}>
                           {emoji} {users.length}
                         </button>
@@ -477,6 +527,7 @@ export default function ChatView({ chat, chats, myId, myName, online, background
                   )}
                 </div>
               </div>
+            </Fragment>
             )
           })}
           <div ref={endRef} />
