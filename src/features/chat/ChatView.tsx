@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ClipboardEvent, type FormEvent, type MouseEvent, type TouchEvent, useLayoutEffect } from 'react'
-import { ArrowLeft, Check, CheckCheck, Copy, Forward, ImagePlus, Mic, PanelRight, Paperclip, Pencil, Pin, Reply, SendHorizontal, Trash2, X } from 'lucide-react'
+import { ArrowLeft, Check, CheckCheck, Copy, Forward, ImagePlus, Mic, PanelRight, Paperclip, Pencil, Pin, Reply, SendHorizontal, Smile, Trash2, X } from 'lucide-react'
+import EmojiPanel from '../stickers/EmojiPanel'
+import StickerView from '../stickers/StickerView'
+import { attLabel, isStickerType, type StickerKind } from '../stickers/stickers'
 import type { ChatItem, Message } from '../../lib/types'
 import { clearPin, copyChatImage, deleteMessage, sendMessage, setPin, updateMessage, uploadChatImage, uploadChatVoice } from './api'
 import { useImageUrls, useMessages, useProfileNames } from './hooks'
@@ -84,6 +87,8 @@ export default function ChatView({ chat, chats, myId, myName, online, background
   const fileRef = useRef<HTMLInputElement>(null)
   const [viewer, setViewer] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [panel, setPanel] = useState(false)
+  const textRef = useRef<HTMLInputElement>(null)
   const [pending, setPending] = useState<File[] | null>(null)
   const [recording, setRecording] = useState(false)
   const [recSecs, setRecSecs] = useState(0)
@@ -199,7 +204,9 @@ export default function ChatView({ chat, chats, myId, myName, online, background
     exitSelect()
     for (const m of list) {
       try {
-        const att = m.attachment_path
+        const att = m.attachment_path && isStickerType(m.attachment_type)
+          ? { path: m.attachment_path, type: m.attachment_type }
+          : m.attachment_path
           ? {
               path: await copyChatImage(m.attachment_path, target.id),
               type: (m.attachment_type === 'file' ? 'file' : m.attachment_type === 'voice' ? 'voice' : 'image') as 'image' | 'file' | 'voice',
@@ -208,6 +215,26 @@ export default function ChatView({ chat, chats, myId, myName, online, background
         await sendMessage(target.id, myId, m.body, null, m.forwarded_from ?? senderName(m), att)
       } catch (e) { fail(e) }
     }
+  }
+
+  function insertEmoji(em: string) {
+    const el = textRef.current
+    const start = el?.selectionStart ?? text.length
+    const end = el?.selectionEnd ?? text.length
+    const next = text.slice(0, start) + em + text.slice(end)
+    if (next.length > 4000) return
+    setText(next)
+    const pos = start + em.length
+    requestAnimationFrame(() => { el?.focus(); el?.setSelectionRange(pos, pos) })
+  }
+
+  async function sendSticker(kind: StickerKind, path: string) {
+    setPanel(false)
+    setSendError(null)
+    const reply = replyTo
+    setReplyTo(null)
+    try { add(await sendMessage(chat.id, myId, null, reply?.id ?? null, null, { path, type: kind })) }
+    catch (err) { fail(err); setReplyTo(reply) }
   }
 
   async function onSubmit(e: FormEvent) {
@@ -413,7 +440,7 @@ export default function ChatView({ chat, chats, myId, myName, online, background
             <span className="text-xs text-accent">Закреплено · </span>
             {pinned?.body
               ?? (pinned?.attachment_type === 'voice' ? '🎤 Голосовое'
-                : pinned?.attachment_path ? '📷 Фото' : 'сообщение')}
+                : pinned?.attachment_path ? attLabel(pinned.attachment_type) : 'сообщение')}
           </button>
           <button title="Открепить" className="text-muted hover:text-text"
             onClick={() => void clearPin(chat.id).then(() => setPinId(null)).catch(fail)}><X size={14} /></button>
@@ -468,8 +495,8 @@ export default function ChatView({ chat, chats, myId, myName, online, background
                   <div onContextMenu={(e) => openMenu(e, m)} onTouchStart={(e) => startPress(e, m)}
                     onTouchEnd={cancelPress} onTouchMove={cancelPress}
                     style={bc ? ({ '--accent': bc, '--on-accent': readableOn(bc) } as CSSProperties) : undefined}
-                    className={`rounded-2xl px-4 py-2 text-sm select-none md:select-text ${
-                      (mine ? (lastInRun ? 'rounded-br-md' : '') : (lastInRun ? 'rounded-bl-md' : '')) + (own ? ' bg-accent text-on-accent' : ' bg-surface')} ${
+                    className={`rounded-2xl text-sm select-none md:select-text ${isStickerType(m.attachment_type) && !m.body ? 'p-0.5' : 'px-4 py-2'} ${
+                      (mine ? (lastInRun ? 'rounded-br-md' : '') : (lastInRun ? 'rounded-bl-md' : '')) + (isStickerType(m.attachment_type) && !m.body ? '' : own ? ' bg-accent text-on-accent' : ' bg-surface')} ${
                       selected.has(m.id) ? 'ring-2 ring-text' : ''}`}>
                     {!mine && chat.kind === 'group' && !sameAsPrev && (
                       <div className={`mb-1 flex items-center gap-1 text-xs font-medium ${bc ? 'text-on-accent' : 'text-accent'}`}><ColoredName userId={m.sender_id} name={names[m.sender_id] ?? '…'} className="truncate" />{sender?.verified && <VerifiedBadge size={12} />}<PremiumBadge userId={m.sender_id} size={12} /></div>
@@ -482,10 +509,12 @@ export default function ChatView({ chat, chats, myId, myName, online, background
                         own ? 'border-on-accent/50 text-on-accent/80' : 'border-accent text-muted'}`}>
                         {original?.body
                           ?? (original?.attachment_type === 'voice' ? '🎤 Голосовое'
-                            : original?.attachment_path ? '📷 Фото' : 'Сообщение')}
+                            : original?.attachment_path ? attLabel(original.attachment_type) : 'Сообщение')}
                       </div>
                     )}
-                    {m.attachment_path && (
+                    {m.attachment_path && isStickerType(m.attachment_type) ? (
+                      <StickerView path={m.attachment_path} kind={m.attachment_type} disabled={selectMode} />
+                    ) : m.attachment_path && (
                       !urls[m.attachment_path]
                         ? (
                           <div className={`mb-1 animate-pulse rounded-xl bg-bg/30 ${
@@ -508,7 +537,7 @@ export default function ChatView({ chat, chats, myId, myName, online, background
                                 onClick={(e) => { e.stopPropagation(); if (!selectMode) setViewer(urls[m.attachment_path!]) }} />
                     )}
                     {m.body && <p className="break-words whitespace-pre-wrap">{m.body}</p>}
-                    <div className={`mt-1 flex items-center justify-end gap-1 text-[10px] ${own ? 'text-on-accent/70' : 'text-muted'}`}>
+                    <div className={`mt-1 flex items-center justify-end gap-1 text-[10px] ${isStickerType(m.attachment_type) && !m.body ? 'text-muted' : own ? 'text-on-accent/70' : 'text-muted'}`}>
                       {m.edited_at && <span>изменено</span>}
                       {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       {ticks && (isRead(m) ? <CheckCheck size={12} /> : <Check size={12} />)}
@@ -537,7 +566,10 @@ export default function ChatView({ chat, chats, myId, myName, online, background
       {!canPost ? (
         <div className="border-t border-line bg-bg2 p-4 text-center text-sm text-muted">Писать в канал могут только администраторы</div>
       ) : (
-      <form onSubmit={onSubmit} className="border-t border-line bg-bg2 p-3">
+      <form onSubmit={onSubmit} className="relative border-t border-line bg-bg2 p-3">
+        {panel && !recording && (
+          <EmojiPanel canSend={canPost && !editing} onEmoji={insertEmoji} onSend={(k, p) => void sendSticker(k, p)} onClose={() => setPanel(false)} />
+        )}
         {(replyTo || editing) && !recording && (
           <div className="mb-2 flex items-center gap-2 rounded-xl bg-surface px-3 py-2 text-xs">
             {editing ? <Pencil size={14} className="text-accent" /> : <Reply size={14} className="text-accent" />}
@@ -546,7 +578,7 @@ export default function ChatView({ chat, chats, myId, myName, online, background
                 ? `Изменение: ${editing.body ?? ''}`
                 : (replyTo?.body
                   ?? (replyTo?.attachment_type === 'voice' ? '🎤 Голосовое'
-                    : replyTo?.attachment_path ? '📷 Фото' : 'Сообщение'))}
+                    : replyTo?.attachment_path ? attLabel(replyTo.attachment_type) : 'Сообщение'))}
             </span>
             <button type="button" className="text-muted hover:text-text"
               onClick={() => { setReplyTo(null); if (editing) { setEditing(null); setText('') } }}><X size={14} /></button>
@@ -575,7 +607,9 @@ export default function ChatView({ chat, chats, myId, myName, online, background
             <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple className="hidden" onChange={onPickImages} />
             <button type="button" title="Отправить фото" disabled={uploading || !!editing} onClick={() => fileRef.current?.click()}
               className="rounded-xl p-2 text-muted transition hover:text-text disabled:opacity-40"><ImagePlus size={20} /></button>
-            <input value={text} maxLength={4000} placeholder="Сообщение" onPaste={onPaste}
+            <button type="button" data-emoji-toggle title="Эмодзи, стикеры, GIF" onClick={() => setPanel((v) => !v)}
+              className={`rounded-xl p-2 transition hover:text-text ${panel ? 'text-accent' : 'text-muted'}`}><Smile size={20} /></button>
+            <input ref={textRef} value={text} maxLength={4000} placeholder="Сообщение" onPaste={onPaste}
               onChange={(e) => { setText(e.target.value); if (e.target.value && !saved && !editing) sendTyping() }}
               className="flex-1 bg-transparent py-2 text-sm outline-none placeholder:text-muted" />
             {text.trim() || editing ? (
