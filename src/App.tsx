@@ -25,6 +25,7 @@ import ProfileModal from './features/profile/ProfileModal'
 import SettingsModal from './features/settings/SettingsModal'
 import { joinChat } from './features/chat/api'
 import { useChats, useOnline } from './features/chat/hooks'
+import LandingPage from './features/landing/LandingPage'
 
 const PROFILE_SELECT = 'id, username, display_name, bio, avatar_url, created_at, showcase_number, handles, channel_id, verified, avatar_visibility, number_visibility'
 
@@ -165,6 +166,12 @@ function Messenger({ userId }: { userId: string }) {
 }
 
 export default function App() {
+  const path = window.location.pathname
+  if (path !== '/app' && path !== '/app/') return <LandingPage />
+  return <MessengerApp />
+}
+
+function MessengerApp() {
   const { session, loading } = useSession()
   useAccountSync()
   if (loading) return <div className="flex h-full items-center justify-center text-muted">Загрузка…</div>
