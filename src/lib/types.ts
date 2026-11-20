@@ -44,6 +44,8 @@ export interface LastMessage {
 
 export interface ChatItem {
   verified?: boolean
+  clearedAt?: string | null
+  hiddenAt?: string | null
   id: string
   kind: ChatKind
   role: Role

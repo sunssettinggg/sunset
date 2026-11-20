@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase'
 import { canSee, getContacts, maskProfile } from '../privacy/visibility'
+import { myClearedAt, myMemberStates } from './chatManage'
 import type { ChatItem, LastMessage, MarketItem, Member, Message, Profile, ProfileChannel, PublicChat, Reaction, Role } from '../../lib/types'
 
 const PROFILE_COLS = 'id, username, display_name, bio, avatar_url, created_at, showcase_number, handles, channel_id, verified, avatar_visibility, number_visibility'
@@ -39,6 +40,7 @@ export async function listChats(myId: string): Promise<ChatItem[]> {
     .eq('user_id', myId)
   if (error) throw error
   const memberships = (mine ?? []) as unknown as MembershipRow[]
+  const states = await myMemberStates(myId)
   const directIds = memberships.filter((m) => m.chats.kind === 'direct').map((m) => m.chat_id)
 
   const otherByChat = new Map<string, Profile>()
@@ -70,14 +72,17 @@ export async function listChats(myId: string): Promise<ChatItem[]> {
       description: c.description,
       isPublic: c.is_public,
       publicHandle: c.handle,
+      clearedAt: states.get(m.chat_id)?.clearedAt ?? null,
+      hiddenAt: states.get(m.chat_id)?.hiddenAt ?? null,
     }
   })
 }
 
 export async function fetchMessages(chatId: string): Promise<Message[]> {
-  const { data, error } = await supabase
-    .from('messages').select(MESSAGE_COLS).eq('chat_id', chatId).is('deleted_at', null)
-    .order('created_at', { ascending: false }).limit(100)
+  const after = await myClearedAt(chatId)
+  let q = supabase.from('messages').select(MESSAGE_COLS).eq('chat_id', chatId).is('deleted_at', null)
+  if (after) q = q.gt('created_at', after)
+  const { data, error } = await q.order('created_at', { ascending: false }).limit(100)
   if (error) throw error
   return (data as Message[]).reverse()
 }

@@ -62,7 +62,7 @@ export function useChats(myId: string, selectedId: string | null) {
     return (last[b.id]?.created_at ?? '9999').localeCompare(last[a.id]?.created_at ?? '9999')
   }), [chats, last])
 
-  return { chats: sorted, loading, unread, last, reload }
+  return { chats: sorted, loading, unread, last, reload, reloadMeta: loadMeta }
 }
 
 export function useOnline(myId: string, visible: boolean) {

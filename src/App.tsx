@@ -44,7 +44,7 @@ function Messenger({ userId }: { userId: string }) {
   const [flags, setFlags] = useState<Record<FlagName, boolean>>({
     sound: getFlag('sound'), online: getFlag('online'), motion: getFlag('motion'),
   })
-  const { chats, loading, unread, last, reload } = useChats(userId, selectedId)
+  const { chats, loading, unread, last, reload, reloadMeta } = useChats(userId, selectedId)
   const online = useOnline(userId, flags.online)
   const isAdmin = useIsAdmin(userId)
 
@@ -111,6 +111,8 @@ function Messenger({ userId }: { userId: string }) {
           onOpenProfile={() => setProfileOpen(true)} onOpenSettings={() => setMenuOpen(true)} />
         {view === 'chats' && <Sidebar myId={me.id} chats={chats} loading={loading} selectedId={selectedId} unread={unread}
           last={last} online={online} muted={muted} onSelect={setSelectedId} onChatCreated={reload}
+          onToggleMute={toggleMute}
+          onChatChanged={(id) => { if (id === selectedId) { setSelectedId(null); setShowInfo(false) } void reload(); void reloadMeta() }}
           onNewChat={() => setNewChatOpen(true)} />}
       </div>
       {view === 'admin' && isAdmin ? (

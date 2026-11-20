@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { BellOff, Plus, Search } from 'lucide-react'
+import { useEffect, useRef, useState, type MouseEvent, type TouchEvent } from 'react'
+import { BellOff, Pin, Plus, Search } from 'lucide-react'
 import type { ChatItem, LastMessage, Profile, PublicChat } from '../../lib/types'
 import { plural } from '../../lib/format'
 import { createDirectChat, joinChat, searchProfiles, searchPublicChats } from './api'
@@ -9,6 +9,8 @@ import UsernameLine from './UsernameLine'
 import VerifiedBadge from '../verified/VerifiedBadge'
 import PremiumBadge from '../premium/PremiumBadge'
 import ColoredName from '../premium/ColoredName'
+import { ChatConfirm, ChatContextMenu } from './ChatContextMenu'
+import { clearHistory, deleteChat, getPinned, setPinned } from './chatManage'
 
 interface Props {
   myId: string
@@ -19,6 +21,8 @@ interface Props {
   last: Record<string, LastMessage>
   online: Set<string>
   muted: string[]
+  onToggleMute: (id: string) => void
+  onChatChanged: (id: string, what: 'cleared' | 'deleted') => void
   onSelect: (id: string) => void
   onChatCreated: () => Promise<void>
   onNewChat: () => void
@@ -31,11 +35,18 @@ function formatTime(iso: string): string {
     : d.toLocaleDateString([], { day: 'numeric', month: 'short' })
 }
 
-export default function Sidebar({ myId, chats, loading, selectedId, unread, last, online, muted, onSelect, onChatCreated, onNewChat }: Props) {
+export default function Sidebar({ myId, chats, loading, selectedId, unread, last, online, muted, onToggleMute, onChatChanged, onSelect, onChatCreated, onNewChat }: Props) {
   const [query, setQuery] = useState('')
   const [people, setPeople] = useState<Profile[]>([])
   const [publics, setPublics] = useState<PublicChat[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [pinned, setPinnedState] = useState<string[]>(getPinned)
+  const [menu, setMenu] = useState<{ x: number; y: number; chat: ChatItem } | null>(null)
+  const [confirm, setConfirm] = useState<{ mode: 'clear' | 'delete'; chat: ChatItem } | null>(null)
+  const [confirmBusy, setConfirmBusy] = useState(false)
+  const [confirmError, setConfirmError] = useState<string | null>(null)
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const longPressed = useRef(false)
 
   useEffect(() => {
     if (!query.trim()) { setPeople([]); setPublics([]); return }
@@ -65,6 +76,43 @@ export default function Sidebar({ myId, chats, loading, selectedId, unread, last
   }
 
   const rowCls = 'flex w-full items-center gap-3 rounded-xl p-3 text-left transition hover:bg-surface'
+
+  // Удалённые чаты скрыты, пока не придёт сообщение новее момента удаления. Закреплённые идут сразу после «Избранного».
+  const visibleChats = chats.filter((c) => !c.hiddenAt || (last[c.id] && last[c.id].created_at > c.hiddenAt))
+  const orderedChats = [
+    ...visibleChats.filter((c) => c.kind === 'saved'),
+    ...visibleChats.filter((c) => c.kind !== 'saved' && pinned.includes(c.id)),
+    ...visibleChats.filter((c) => c.kind !== 'saved' && !pinned.includes(c.id)),
+  ]
+
+  function openMenu(e: MouseEvent, chat: ChatItem) {
+    e.preventDefault()
+    setMenu({ x: e.clientX, y: e.clientY, chat })
+  }
+  function startPress(e: TouchEvent, chat: ChatItem) {
+    const t = e.touches[0]
+    longPressed.current = false
+    pressTimer.current = setTimeout(() => { longPressed.current = true; setMenu({ x: t.clientX, y: t.clientY, chat }) }, 450)
+  }
+  function cancelPress() { clearTimeout(pressTimer.current) }
+  function togglePin(id: string) {
+    const next = pinned.includes(id) ? pinned.filter((x) => x !== id) : [...pinned, id]
+    setPinned(next)
+    setPinnedState(next)
+  }
+  async function confirmAction(forAll: boolean) {
+    if (!confirm) return
+    setConfirmBusy(true); setConfirmError(null)
+    try {
+      if (confirm.mode === 'clear') await clearHistory(confirm.chat.id)
+      else await deleteChat(confirm.chat.id, forAll)
+      const id = confirm.chat.id
+      const what = confirm.mode === 'clear' ? 'cleared' : 'deleted'
+      setConfirm(null)
+      onChatChanged(id, what)
+    } catch (e) { setConfirmError((e as Error).message) }
+    finally { setConfirmBusy(false) }
+  }
 
   return (
     <aside className="flex h-full min-w-0 flex-1 flex-col bg-bg2 md:w-80 md:flex-none md:border-r md:border-line">
@@ -120,17 +168,20 @@ export default function Sidebar({ myId, chats, loading, selectedId, unread, last
             {[0, 1, 2].map((i) => <div key={i} className="h-14 animate-pulse rounded-xl bg-surface" />)}
           </div>
         ) : (
-          chats.map((c) => {
-            const l = last[c.id]
+          orderedChats.map((c) => {
+            const l0 = last[c.id]
+            const l = l0 && (!c.clearedAt || l0.created_at > c.clearedAt) ? l0 : undefined
             const isMuted = muted.includes(c.id)
             const count = unread[c.id] ?? 0
             return (
-              <button key={c.id} onClick={() => onSelect(c.id)}
+              <button key={c.id} onClick={() => { if (longPressed.current) { longPressed.current = false; return } onSelect(c.id) }}
+                onContextMenu={(e) => openMenu(e, c)} onTouchStart={(e) => startPress(e, c)} onTouchEnd={cancelPress} onTouchMove={cancelPress}
                 className={`${rowCls} ${c.id === selectedId ? 'bg-surface' : ''}`}>
                 <ChatAvatar chat={c} online={c.otherId !== null && online.has(c.otherId)} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="flex min-w-0 flex-1 items-center gap-1 text-sm font-medium"><ColoredName userId={c.otherId} name={c.name} className="truncate" />{c.verified && <VerifiedBadge />}<PremiumBadge userId={c.otherId} /></span>
+                    {pinned.includes(c.id) && <Pin size={12} className="text-muted" />}
                     {isMuted && <BellOff size={12} className="text-muted" />}
                     {l && <span className="text-xs text-muted">{formatTime(l.created_at)}</span>}
                   </div>
@@ -156,6 +207,17 @@ export default function Sidebar({ myId, chats, loading, selectedId, unread, last
           })
         )}
       </div>
+      {menu && (
+        <ChatContextMenu x={menu.x} y={menu.y} chat={menu.chat} pinned={pinned.includes(menu.chat.id)} muted={muted.includes(menu.chat.id)}
+          onTogglePin={() => togglePin(menu.chat.id)} onToggleMute={() => onToggleMute(menu.chat.id)}
+          onClear={() => { setConfirmError(null); setConfirm({ mode: 'clear', chat: menu.chat }) }}
+          onDelete={() => { setConfirmError(null); setConfirm({ mode: 'delete', chat: menu.chat }) }}
+          onClose={() => setMenu(null)} />
+      )}
+      {confirm && (
+        <ChatConfirm mode={confirm.mode} chat={confirm.chat} busy={confirmBusy} error={confirmError}
+          onConfirm={(all) => void confirmAction(all)} onCancel={() => setConfirm(null)} />
+      )}
     </aside>
   )
 }
