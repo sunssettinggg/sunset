@@ -44,3 +44,22 @@ body { background: var(--bg); color: var(--text); font-family: var(--font-sans);
 :root[data-theme="light"][data-accent="forest"] { --accent: #2f8f55; --on-accent: #ffffff; }
 :root[data-theme="light"][data-accent="violet"] { --accent: #7a55d6; --on-accent: #ffffff; }
 :root[data-theme="light"][data-accent="amber"] { --accent: #c7821a; --on-accent: #ffffff; }
+
+/* Свои полосы прокрутки в стиле Sunset */
+* { scrollbar-width: auto; }
+@supports (-moz-appearance: none) {
+  * { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--muted) 45%, transparent) transparent; }
+}
+::-webkit-scrollbar { width: 12px; height: 12px; background: transparent; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-corner { background: transparent; }
+::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+::-webkit-scrollbar-thumb {
+  background-color: color-mix(in srgb, var(--muted) 40%, transparent);
+  background-clip: padding-box;
+  border: 4px solid transparent;
+  border-radius: 999px;
+  transition: background-color 0.15s;
+}
+::-webkit-scrollbar-thumb:hover { background-color: var(--accent); border-width: 3px; }
+::-webkit-scrollbar-thumb:active { background-color: var(--accent); }
