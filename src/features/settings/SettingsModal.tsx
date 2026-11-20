@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react'
-import { ArrowLeft, Bell, ImagePlus, Lock, LogOut, MessageCircle, Sparkles, Trash2, User, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, Bell, ChevronRight, ImagePlus, Lock, LogOut, MessageCircle, Sparkles, Trash2, type LucideIcon } from 'lucide-react'
 import { fileToBackground, type FlagName, type Theme } from '../../lib/prefs'
 import type { Profile } from '../../lib/types'
 import Avatar from '../chat/Avatar'
@@ -30,12 +30,15 @@ interface Props {
   onClose: () => void
 }
 
-function MenuRow({ Icon, label, value, danger, onClick }: { Icon: LucideIcon; label: string; value?: string; danger?: boolean; onClick: () => void }) {
+function MenuRow({ Icon, label, value, danger, tone, onClick }: { Icon: LucideIcon; label: string; value?: string; danger?: boolean; tone?: string; onClick: () => void }) {
+  const color = danger ? 'var(--danger)' : (tone ?? 'var(--accent)')
   return (
-    <button onClick={onClick} className={`flex w-full items-center gap-4 rounded-xl px-3 py-3 text-left text-sm transition hover:bg-surface ${danger ? 'text-pink' : ''}`}>
-      <Icon size={20} className={danger ? '' : 'text-muted'} />
+    <button onClick={onClick} className={`flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm transition hover:bg-bg/40 ${danger ? 'text-pink' : ''}`}>
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+        style={{ color, backgroundColor: `color-mix(in srgb, ${color} 16%, transparent)` }}><Icon size={19} /></span>
       <span className="flex-1">{label}</span>
       {value && <span className="text-accent">{value}</span>}
+      {!danger && <ChevronRight size={16} className="text-muted" />}
     </button>
   )
 }
@@ -137,21 +140,31 @@ export default function SettingsModal(p: Props) {
 
   return (
     <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/60 p-4" onClick={p.onClose}>
-      <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-3xl bg-bg2 p-4" onClick={(e) => e.stopPropagation()}>
+      <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-3xl border border-line bg-bg2 p-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-3 flex items-center gap-2 px-2">
           {page && <button onClick={() => { setPage(null); setError(null) }} className="rounded-lg p-1 text-muted hover:text-text"><ArrowLeft size={20} /></button>}
           <h2 className="text-lg font-medium">{page ? TITLES[page] : 'Настройки'}</h2>
         </div>
 
         {page === null && (
-          <div>
-            <MenuRow Icon={User} label="Мой аккаунт" onClick={() => setPage('account')} />
-            <MenuRow Icon={Bell} label="Уведомления и звуки" onClick={() => setPage('notif')} />
-            <MenuRow Icon={Lock} label="Конфиденциальность" onClick={() => setPage('privacy')} />
-            <MenuRow Icon={MessageCircle} label="Настройки чатов" onClick={() => setPage('chats')} />
-            <MenuRow Icon={Sparkles} label="Анимация" onClick={() => setPage('motion')} />
-            <div className="my-2 border-t border-line" />
-            <MenuRow Icon={LogOut} label="Выйти из аккаунта" danger onClick={p.onSignOut} />
+          <div className="space-y-3">
+            <button onClick={() => setPage('account')} className="flex w-full items-center gap-3 rounded-2xl bg-surface p-3 text-left transition hover:brightness-110">
+              <Avatar name={p.me.display_name} url={p.me.avatar_url} size={48} />
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-medium">{p.me.display_name}</div>
+                <div className="truncate text-xs text-muted">@{p.me.username}</div>
+              </div>
+              <ChevronRight size={16} className="text-muted" />
+            </button>
+            <div className="divide-y divide-line overflow-hidden rounded-2xl bg-surface">
+              <MenuRow Icon={Bell} tone="#f6a23a" label="Уведомления и звуки" onClick={() => setPage('notif')} />
+              <MenuRow Icon={Lock} tone="#4ade80" label="Конфиденциальность" onClick={() => setPage('privacy')} />
+              <MenuRow Icon={MessageCircle} tone="#38bdf8" label="Настройки чатов" onClick={() => setPage('chats')} />
+              <MenuRow Icon={Sparkles} tone="#c084fc" label="Анимация" onClick={() => setPage('motion')} />
+            </div>
+            <div className="overflow-hidden rounded-2xl bg-surface">
+              <MenuRow Icon={LogOut} label="Выйти из аккаунта" danger onClick={p.onSignOut} />
+            </div>
           </div>
         )}
 
@@ -161,11 +174,12 @@ export default function SettingsModal(p: Props) {
               <Avatar name={p.me.display_name} url={p.me.avatar_url} size={64} />
               <div className="min-w-0">
                 <div className="truncate font-medium">{p.me.display_name}</div>
-                <div className="text-sm"><UsernameLine muted userId={p.me.id} username={p.me.username} handles={p.me.handles} /></div>
+                <div className="text-sm"><UsernameLine muted userId={p.me.id} username={p.me.username} handles={[]} /></div>
               </div>
             </div>
             <div className="divide-y divide-line rounded-xl bg-surface">
               <Info label="О себе" value={p.me.bio || 'Не указано'} />
+              {p.me.handles.length > 0 && <Info label="Коллекционные юзернеймы" value={p.me.handles.map((h) => '@' + h).join(', ')} />}
               {p.me.showcase_number && <Info label="Номер" value={p.me.showcase_number} />}
             </div>
             <button onClick={() => { p.onClose(); p.onEditProfile() }}

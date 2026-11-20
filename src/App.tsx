@@ -153,7 +153,7 @@ function Messenger({ userId }: { userId: string }) {
         onSwitch={(id) => switchAccount(id)}
         onAddAccount={() => { setMenuOpen(false); void addAccountFlow(me.id) }} />}
       {profileOpen && <ProfileModal me={me} onOpenChannel={openChannel} onClose={() => setProfileOpen(false)}
-        onSaved={(p) => { setMe(p); setProfileOpen(false) }} />}
+        onSaved={(p) => { setMe(p) }} />}
       {settingsOpen && <SettingsModal me={me} onProfileChanged={loadMe} theme={theme} background={background}
         flags={flags} mutedCount={muted.length} onSetTheme={changeTheme} onSetBackground={changeBackground}
         onSetFlag={changeFlag} onEditProfile={() => setProfileOpen(true)}

@@ -1,0 +1,14 @@
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+
+const P = 'src/features/profile/ProfileModal.tsx'
+if (!existsSync(P)) { console.error('Запускай из папки проекта (sunset-app); нужен setup32.'); process.exit(1) }
+const raw = readFileSync(P, 'utf8')
+const crlf = raw.includes('\r\n')
+let s = raw.replace(/\r\n/g, '\n')
+if (s.includes('<Pencil')) { console.log('Уже применено'); process.exit(0) }
+for (const [a, b] of [["import { Camera, ChevronRight, Info, Loader2, Palette, Phone, X } from 'lucide-react'","import { Camera, Info, Loader2, Pencil, Phone, X } from 'lucide-react'"],["          <button onClick={onClose} title=\"Закрыть\" className=\"rounded-lg p-1 text-muted transition hover:text-text\"><X size={18} /></button>\n","          <div className=\"flex items-center gap-1\">\n            <button onClick={() => setStyleOpen(true)} title=\"Оформление профиля\" className=\"rounded-lg p-1 text-muted transition hover:text-text\"><Pencil size={18} /></button>\n            <button onClick={onClose} title=\"Закрыть\" className=\"rounded-lg p-1 text-muted transition hover:text-text\"><X size={18} /></button>\n          </div>\n"],["        <button type=\"button\" onClick={() => setStyleOpen(true)}\n          className=\"flex w-full items-center gap-3 rounded-2xl bg-surface px-4 py-3 text-left text-sm transition hover:brightness-110\">\n          <Palette size={16} className=\"text-accent\" />\n          <span className=\"flex-1\">Оформление профиля</span>\n          <ChevronRight size={16} className=\"text-muted\" />\n        </button>\n\n",""],["        {me.showcase_number && (\n          <Card title=\"Номер\">\n            <button onClick={() => setCollectible({ kind: 'number', value: me.showcase_number as string })} title=\"О номере\"\n              className=\"flex items-center gap-3 text-left text-sm transition hover:brightness-125\">\n              <Phone size={16} className=\"text-accent\" />{me.showcase_number}\n            </button>\n          </Card>\n        )}\n\n",""],["        <Card title=\"Имя пользователя\">","        {me.showcase_number && (\n          <Card title=\"Номер\">\n            <button onClick={() => setCollectible({ kind: 'number', value: me.showcase_number as string })} title=\"О номере\"\n              className=\"flex items-center gap-3 text-left text-sm transition hover:brightness-125\">\n              <Phone size={16} className=\"text-accent\" />{me.showcase_number}\n            </button>\n          </Card>\n        )}\n\n        <Card title=\"Имя пользователя\">"]]) {
+  if (!s.includes(a)) { console.error('Не нашёл место в ProfileModal.tsx:\n' + a.slice(0, 300) + '\nНичего не менял. Пришли мне файл.'); process.exit(1) }
+  s = s.replace(a, () => b)
+}
+writeFileSync(P, crlf ? s.replace(/\n/g, '\r\n') : s)
+console.log('Готово: номер выше, «Оформление профиля» — карандаш у крестика. Дальше: npm run build')

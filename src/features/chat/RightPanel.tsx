@@ -1,10 +1,10 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { ArrowLeft, Bell, BellOff, CalendarDays, Check, Copy, Gift, Image as ImageIcon, Info, MessageCircle, Phone } from 'lucide-react'
+import { ArrowLeft, AtSign, Bell, BellOff, CalendarDays, Check, Copy, Gift, Image as ImageIcon, Info, MessageCircle, Phone, User } from 'lucide-react'
 import type { ChatItem, ProfileChannel } from '../../lib/types'
 import { profileChannel } from './api'
 import ChannelCard from './ChannelCard'
 import ChatAvatar from './ChatAvatar'
-import UsernameLine from './UsernameLine'
+import { useColors } from '../premium/colors'
 import VerifiedBadge from '../verified/VerifiedBadge'
 import PremiumBadge from '../premium/PremiumBadge'
 import ColoredName, { ColorRing } from '../premium/ColoredName'
@@ -44,11 +44,26 @@ function Line({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   )
 }
 
+function Row({ icon, label, children, onClick }: { icon: ReactNode; label: string; children: ReactNode; onClick?: () => void }) {
+  const cls = 'flex w-full items-center gap-3 px-4 py-3 text-left text-sm'
+  const inner = (
+    <>
+      <span className="text-muted">{icon}</span>
+      <span className="flex-1">{label}</span>
+      <span className="min-w-0 truncate text-accent">{children}</span>
+    </>
+  )
+  return onClick
+    ? <button type="button" onClick={onClick} className={`${cls} transition hover:bg-bg/40`}>{inner}</button>
+    : <div className={cls}>{inner}</div>
+}
+
 export default function RightPanel({ chat, myId, online, muted, onToggleMute, onOpenChannel, onClose }: Props) {
   const [copied, setCopied] = useState(false)
   const [channel, setChannel] = useState<ProfileChannel | null>(null)
   const [giftOpen, setGiftOpen] = useState(false)
   const [wallOpen, setWallOpen] = useState(false)
+  const colors = useColors(chat.otherId)
   const [giftsKey, setGiftsKey] = useState(0)
   const [collectible, setCollectible] = useState<{ kind: CollectibleKind; value: string } | null>(null)
 
@@ -87,8 +102,6 @@ export default function RightPanel({ chat, myId, online, muted, onToggleMute, on
         <div className="mt-2 flex items-center justify-center gap-1.5 text-xl font-bold">
           <ColoredName userId={chat.otherId} name={chat.name} className="break-words" />{chat.verified && <VerifiedBadge size={18} />}<PremiumBadge userId={chat.otherId} size={18} />
         </div>
-        {chat.username && <div className="text-sm text-muted"><UsernameLine muted userId={chat.otherId} username={chat.username} handles={chat.handles}
-          onHandleClick={(h) => setCollectible({ kind: 'username', value: h })} /></div>}
         <div className={`text-xs ${online ? 'text-accent' : 'text-muted'}`}>{online ? 'в сети' : 'не в сети'}</div>
       </div>
 
@@ -107,18 +120,34 @@ export default function RightPanel({ chat, myId, online, muted, onToggleMute, on
         <button onClick={() => setWallOpen(true)} className={`${pill} flex-none`}><ImageIcon size={16} />Обои чата</button>
       )}
 
-      <Card title="О себе">
-        <Line icon={<Info size={16} />}>{chat.bio || 'Описание не указано.'}</Line>
-      </Card>
-
-      {chat.number && (
-        <Card title="Номер">
-          <button onClick={() => setCollectible({ kind: 'number', value: chat.number as string })} title="О номере"
-            className="flex items-center gap-3 text-left text-sm transition hover:brightness-125">
-            <Phone size={16} className="text-accent" />{chat.number}
-          </button>
-        </Card>
-      )}
+      <section className="shrink-0 divide-y divide-line overflow-hidden rounded-2xl bg-surface">
+        {chat.bio && (
+          <div className="px-4 py-3">
+            <div className="flex items-center gap-3 text-sm"><Info size={18} className="text-muted" /><span>О себе</span></div>
+            <p className="mt-1.5 whitespace-pre-wrap break-words pl-[30px] text-sm text-accent">{chat.bio}</p>
+          </div>
+        )}
+        <Row icon={<User size={18} />} label="Имя">{chat.name}</Row>
+        {chat.number && (
+          <Row icon={<Phone size={18} />} label="Номер" onClick={() => setCollectible({ kind: 'number', value: chat.number as string })}>{chat.number}</Row>
+        )}
+        {chat.username && (
+          <Row icon={<AtSign size={18} />} label="Имя пользователя">
+            <span style={colors?.username ? { color: colors.username } : undefined}>@{chat.username}</span>
+          </Row>
+        )}
+        {chat.handles.length > 0 && (
+          <div className="px-4 py-3">
+            <div className="text-xs text-muted">а также</div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {chat.handles.map((h) => (
+                <button key={h} type="button" onClick={() => setCollectible({ kind: 'username', value: h })} title="О юзернейме"
+                  className="rounded-full bg-accent/15 px-3 py-1 text-sm text-accent transition hover:brightness-125">@{h}</button>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
 
       {chat.joinedAt && (
         <Card title="Информация">
