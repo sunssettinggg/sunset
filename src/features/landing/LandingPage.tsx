@@ -1,4 +1,4 @@
-import { ArrowRight, MessageCircle, Users, Radio, Sparkles, ShieldCheck } from 'lucide-react'
+import { ArrowRight, MessageCircle, Users, Radio, Sparkles } from 'lucide-react'
 
 const features = [
   { icon: MessageCircle, title: 'Личные сообщения', text: 'Общайся с людьми в удобном интерфейсе и возвращайся к важным диалогам.' },
