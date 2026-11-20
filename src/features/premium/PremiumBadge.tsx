@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { OPEN_PREMIUM_EVENT, usePremium } from './premium'
+import BadgeHint from '../ui/BadgeHint'
 
 export function PremiumStar({ size = 14, className = '' }: { size?: number; className?: string }) {
   return (
@@ -15,7 +16,7 @@ function PremiumPopup({ onClose }: { onClose: () => void }) {
   return createPortal(
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4"
       onClick={(e) => { e.stopPropagation(); onClose() }}>
-      <div className="w-full max-w-xs space-y-4 rounded-3xl bg-bg2 p-6 text-center" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-xs space-y-4 rounded-3xl border border-line bg-bg2 p-6 text-center shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-tr from-accent to-pink">
           <PremiumStar size={34} />
         </div>
@@ -45,12 +46,9 @@ export default function PremiumBadge({ userId, size = 14, className = '' }: Prop
   if (!on) return null
   return (
     <>
-      <span role="button" tabIndex={0} title="Sunset Premium" aria-label="Подписчик Sunset Premium"
-        className={'inline-flex shrink-0 cursor-pointer transition hover:brightness-125 ' + className}
-        onClick={(e) => { e.stopPropagation(); setOpen(true) }}
-        onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); setOpen(true) } }}>
+      <BadgeHint text="Sunset Premium" label="Подписчик Sunset Premium" className={className} onClick={() => setOpen(true)}>
         <PremiumStar size={size} />
-      </span>
+      </BadgeHint>
       {open && <PremiumPopup onClose={() => setOpen(false)} />}
     </>
   )
