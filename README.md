@@ -1,32 +1,37 @@
-# React + TypeScript + Vite
+# Sunset
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+A place to stay connected.
 
-Currently, two official plugins are available:
+**Sunset** — мессенджер, созданный с идеей простого, комфортного и современного общения.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Без лишнего шума. Без перегруженного интерфейса. Только общение и пространство, которое можно настроить под себя.
 
-## React Compiler
+## About
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Sunset is an independent messaging project focused on simplicity, usability and visual identity.
 
-## Expanding the Oxlint configuration
+## Features
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+- Personal conversations
+- Group chats
+- Channels
+- User profiles
+- Interface customization
+- Modern and minimalistic design
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
-```
+## Preview
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+🌐 https://sunset-pink.vercel.app/
+
+## Development
+
+Sunset is actively evolving. New features, improvements and interface updates are introduced as development continues.
+
+## Links
+
+- Website: https://sunset-pink.vercel.app/
+- GitHub: https://github.com/sunssettinggg/sunset
+
+---
+
+**Sunset — your space to connect.**
