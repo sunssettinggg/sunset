@@ -26,7 +26,7 @@ export interface Message {
   edited_at: string | null
   forwarded_from: string | null
   attachment_path: string | null
-  attachment_type: 'image' | 'file' | 'voice' | 'sticker' | 'gif' | null
+  attachment_type: 'image' | 'file' | 'voice' | 'sticker' | 'gif' | 'gift' | null
 }
 
 export interface Reaction {
@@ -39,7 +39,7 @@ export interface LastMessage {
   body: string | null
   created_at: string
   sender_id: string
-  attachment_type?: 'image' | 'file' | 'voice' | 'sticker' | 'gif' | null
+  attachment_type?: 'image' | 'file' | 'voice' | 'sticker' | 'gif' | 'gift' | null
 }
 
 export interface ChatItem {

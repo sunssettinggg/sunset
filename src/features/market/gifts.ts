@@ -1,6 +1,6 @@
 import { supabase } from '../../lib/supabase'
 
-export interface Gift { id: string; title: string; description: string; image_url: string; price: number; active: boolean }
+export interface Gift { id: string; title: string; description: string; image_url: string; price: number; active: boolean; collection?: string | null; upgrade_price?: number }
 export interface OwnedGift {
   id: string
   gift_id: string
@@ -14,7 +14,7 @@ const OWNED_COLS = 'id, gift_id, created_at, shown, note, sender:from_id(display
 
 // Весь каталог (в том числе снятые с продажи — они нужны для уже полученных подарков).
 export async function listGifts(): Promise<Gift[]> {
-  const { data, error } = await supabase.from('gifts').select('id, title, description, image_url, price, active').order('price')
+  const { data, error } = await supabase.from('gifts').select('id, title, description, image_url, price, active, collection, upgrade_price').order('price')
   if (error) throw error
   return data as Gift[]
 }

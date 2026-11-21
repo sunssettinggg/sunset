@@ -89,7 +89,7 @@ export async function fetchMessages(chatId: string): Promise<Message[]> {
 
 export async function sendMessage(
   chatId: string, senderId: string, body: string | null, replyTo: string | null, forwardedFrom: string | null = null,
-  attachment: { path: string; type: 'image' | 'file' | 'voice' | 'sticker' | 'gif' } | null = null,
+  attachment: { path: string; type: 'image' | 'file' | 'voice' | 'sticker' | 'gif' | 'gift' } | null = null,
 ): Promise<Message> {
   const { data, error } = await supabase
     .from('messages').insert({ chat_id: chatId, sender_id: senderId, body, reply_to: replyTo, forwarded_from: forwardedFrom,

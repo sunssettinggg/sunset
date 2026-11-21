@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ClipboardE
 import { ArrowLeft, Check, CheckCheck, Copy, Forward, ImagePlus, Mic, PanelRight, Paperclip, Pencil, Pin, Reply, SendHorizontal, Smile, Trash2, X } from 'lucide-react'
 import EmojiPanel from '../stickers/EmojiPanel'
 import StickerView from '../stickers/StickerView'
+import GiftCard from '../market/GiftCard'
 import { attLabel, isStickerType, type StickerKind } from '../stickers/stickers'
 import type { ChatItem, Message } from '../../lib/types'
 import { clearPin, copyChatImage, deleteMessage, sendMessage, setPin, updateMessage, uploadChatImage, uploadChatVoice } from './api'
@@ -204,6 +205,7 @@ export default function ChatView({ chat, chats, myId, myName, online, background
     exitSelect()
     for (const m of list) {
       try {
+        if (m.attachment_type === 'gift') continue
         const att = m.attachment_path && isStickerType(m.attachment_type)
           ? { path: m.attachment_path, type: m.attachment_type }
           : m.attachment_path
@@ -495,8 +497,8 @@ export default function ChatView({ chat, chats, myId, myName, online, background
                   <div onContextMenu={(e) => openMenu(e, m)} onTouchStart={(e) => startPress(e, m)}
                     onTouchEnd={cancelPress} onTouchMove={cancelPress}
                     style={bc ? ({ '--accent': bc, '--on-accent': readableOn(bc) } as CSSProperties) : undefined}
-                    className={`rounded-2xl text-sm select-none md:select-text ${isStickerType(m.attachment_type) && !m.body ? 'p-0.5' : 'px-4 py-2'} ${
-                      (mine ? (lastInRun ? 'rounded-br-md' : '') : (lastInRun ? 'rounded-bl-md' : '')) + (isStickerType(m.attachment_type) && !m.body ? '' : own ? ' bg-accent text-on-accent' : ' bg-surface')} ${
+                    className={`rounded-2xl text-sm select-none md:select-text ${(m.attachment_type === 'gift' || (isStickerType(m.attachment_type) && !m.body)) ? 'p-0.5' : 'px-4 py-2'} ${
+                      (mine ? (lastInRun ? 'rounded-br-md' : '') : (lastInRun ? 'rounded-bl-md' : '')) + ((m.attachment_type === 'gift' || (isStickerType(m.attachment_type) && !m.body)) ? '' : own ? ' bg-accent text-on-accent' : ' bg-surface')} ${
                       selected.has(m.id) ? 'ring-2 ring-text' : ''}`}>
                     {!mine && chat.kind === 'group' && !sameAsPrev && (
                       <div className={`mb-1 flex items-center gap-1 text-xs font-medium ${bc ? 'text-on-accent' : 'text-accent'}`}><ColoredName userId={m.sender_id} name={names[m.sender_id] ?? '…'} className="truncate" />{sender?.verified && <VerifiedBadge size={12} />}<PremiumBadge userId={m.sender_id} size={12} /></div>
@@ -512,7 +514,9 @@ export default function ChatView({ chat, chats, myId, myName, online, background
                             : original?.attachment_path ? attLabel(original.attachment_type) : 'Сообщение')}
                       </div>
                     )}
-                    {m.attachment_path && isStickerType(m.attachment_type) ? (
+                    {m.attachment_path && m.attachment_type === 'gift' ? (
+                      <GiftCard path={m.attachment_path} mine={mine} sender={names[m.sender_id] ?? ''} note={m.body} disabled={selectMode} />
+                    ) : m.attachment_path && isStickerType(m.attachment_type) ? (
                       <StickerView path={m.attachment_path} kind={m.attachment_type} disabled={selectMode} />
                     ) : m.attachment_path && (
                       !urls[m.attachment_path]
@@ -536,8 +540,8 @@ export default function ChatView({ chat, chats, myId, myName, online, background
                             : <img src={urls[m.attachment_path]} alt="" className="mb-1 max-h-72 max-w-full cursor-zoom-in rounded-xl object-cover"
                                 onClick={(e) => { e.stopPropagation(); if (!selectMode) setViewer(urls[m.attachment_path!]) }} />
                     )}
-                    {m.body && <p className="break-words whitespace-pre-wrap">{m.body}</p>}
-                    <div className={`mt-1 flex items-center justify-end gap-1 text-[10px] ${isStickerType(m.attachment_type) && !m.body ? 'text-muted' : own ? 'text-on-accent/70' : 'text-muted'}`}>
+                    {m.body && m.attachment_type !== 'gift' && <p className="break-words whitespace-pre-wrap">{m.body}</p>}
+                    <div className={`mt-1 flex items-center justify-end gap-1 text-[10px] ${(m.attachment_type === 'gift' || (isStickerType(m.attachment_type) && !m.body)) ? 'text-muted' : own ? 'text-on-accent/70' : 'text-muted'}`}>
                       {m.edited_at && <span>изменено</span>}
                       {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       {ticks && (isRead(m) ? <CheckCheck size={12} /> : <Check size={12} />)}

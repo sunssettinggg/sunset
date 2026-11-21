@@ -191,7 +191,7 @@ export default function Sidebar({ myId, chats, loading, selectedId, unread, last
                         ? `${l.sender_id === myId && c.kind !== 'saved' ? 'Вы: ' : ''}${
                             l.body
                               ?? (l.attachment_type === 'voice' ? '🎤 Голосовое'
-                                : l.attachment_type === 'sticker' ? 'Стикер' : l.attachment_type === 'gif' ? 'GIF' : l.attachment_type === 'file' ? '📎 Файл'
+                                : l.attachment_type === 'gift' ? '🎁 Подарок' : l.attachment_type === 'sticker' ? 'Стикер' : l.attachment_type === 'gif' ? 'GIF' : l.attachment_type === 'file' ? '📎 Файл'
                                   : '📷 Фото')
                           }`
                         : 'Сообщений пока нет'}

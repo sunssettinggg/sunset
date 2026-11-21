@@ -3,6 +3,8 @@ import { AtSign, Gift as GiftIcon, LayoutGrid, List, Phone, Search, Star } from 
 import type { MarketItem, Profile } from '../../lib/types'
 import Avatar from '../chat/Avatar'
 import GiftArt from './GiftArt'
+import { UniqueMine, UniqueShop } from './UniqueLists'
+import { upgradeGift } from './unique'
 import SellModal from './SellModal'
 import { useSellers } from './useSellers'
 import { buyGift, listGifts, myGifts, setGiftShown, type Gift, type OwnedGift } from './gifts'
@@ -352,6 +354,7 @@ export default function MarketPage({ me, onProfileChanged }: Props) {
                   </div>
                 </div>
 
+                {tab === 'gift' && <UniqueShop reloadKey={String(stars)} onChanged={() => { void refresh(); onProfileChanged() }} />}
                 {shownCount === 0 && <p className="text-sm text-muted">Ничего не найдено. Измени фильтры или выстави свой лот.</p>}
 
                 <div className={layout === 'grid' ? 'grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3' : 'flex flex-col gap-2'}>
@@ -370,6 +373,7 @@ export default function MarketPage({ me, onProfileChanged }: Props) {
               <button className={chip(mineKind === 'gift')} onClick={() => setMineKind('gift')}>Подарки</button>
             </div>
 
+            {mineKind === 'gift' && <UniqueMine meId={me.id} reloadKey={ownedGifts.length + ':' + stars} onChanged={() => { void refresh(); onProfileChanged() }} />}
             {mineKind === 'username' && <p className="text-sm text-muted">В профиле: {me.handles.length} из 10</p>}
             {mineKind === 'gift' && ownedGifts.length === 0 && <p className="text-sm text-muted">Подарков пока нет. Загляни во вкладку «Подарки» маркета, а друзьям их можно дарить из окна информации о чате.</p>}
             {mineKind !== 'gift' && myList.length === 0 && <p className="text-sm text-muted">Здесь появятся купленные предметы.</p>}
@@ -386,6 +390,12 @@ export default function MarketPage({ me, onProfileChanged }: Props) {
                         {og.sender ? 'От ' + og.sender.display_name + ' · ' : ''}{new Date(og.created_at).toLocaleDateString('ru-RU')}
                       </div>
                       {og.note && <div className="mt-1 text-xs">{og.note}</div>}
+                      {g?.collection && (
+                        <button type="button" className={smallBtn + ' mt-2'} disabled={busy}
+                          onClick={() => void run(async () => { await upgradeGift(og.id) })}>
+                          Улучшить до уникального{g.upgrade_price ? ' · ' + g.upgrade_price + ' ★' : ''}
+                        </button>
+                      )}
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       {og.shown && <span className="text-xs text-accent">в профиле</span>}

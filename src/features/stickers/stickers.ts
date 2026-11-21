@@ -13,6 +13,7 @@ export function stickerUrl(path: string): string {
 export function attLabel(type: string | null | undefined): string {
   if (type === 'voice') return '🎤 Голосовое'
   if (type === 'file') return '📎 Файл'
+  if (type === 'gift') return '🎁 Подарок'
   if (type === 'sticker') return 'Стикер'
   if (type === 'gif') return 'GIF'
   return '📷 Фото'

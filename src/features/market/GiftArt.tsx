@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react'
 import type { Gift } from './gifts'
+import UniqueArt from './UniqueArt'
 
 // Узор снежинок для обёртки (золото на фиолетовом).
 const FLAKE =
@@ -94,5 +95,7 @@ function SunsetGift() {
 
 export default function GiftArt({ gift }: { gift: Gift }) {
   if (gift.id === 'sunset_new_year') return <SunsetGift />
+  if (gift.id === 'sunset_watch') return <UniqueArt model="classic" backdrop="sunset" symbol="star" label={gift.title} />
+  if (gift.id === 'sunset_cigar') return <UniqueArt model="ruby" backdrop="cyber" symbol="flame" label={gift.title} />
   return <img src={gift.image_url} alt={gift.title} className="aspect-square w-full rounded-xl object-cover" />
 }
