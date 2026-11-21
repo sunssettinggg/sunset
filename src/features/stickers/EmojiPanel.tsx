@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Clock, Loader2, Plus, Smile, Sticker, X, Film } from 'lucide-react'
+import StickerTab from './StickerTab'
 import { EMOJI_GROUPS, getRecentEmoji, pushRecentEmoji } from './emoji'
 import {
   addSticker, friendlyStickerError, getRecent, listMine, pushRecent, removeSticker, stickerUrl,
@@ -43,7 +44,7 @@ export default function EmojiPanel({ canSend, onEmoji, onSend, onClose }: Props)
     const onDown = (e: MouseEvent | TouchEvent) => {
       const t = e.target as Node | null
       if (!t || rootRef.current?.contains(t)) return
-      if (t instanceof Element && t.closest('[data-emoji-toggle]')) return
+      if (t instanceof Element && t.closest('[data-emoji-toggle], [data-sticker-modal]')) return
       onClose()
     }
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -93,7 +94,7 @@ export default function EmojiPanel({ canSend, onEmoji, onSend, onClose }: Props)
     if (el instanceof HTMLElement && scrollRef.current) scrollRef.current.scrollTo({ top: el.offsetTop - 4, behavior: 'smooth' })
   }
 
-  const kind: StickerKind = tab === 'gif' ? 'gif' : 'sticker'
+  const kind: StickerKind = 'gif'
   const items = mine.filter((s) => s.kind === kind)
   const recent = tab === 'emoji' ? [] : getRecent(kind)
 
@@ -155,6 +156,8 @@ export default function EmojiPanel({ canSend, onEmoji, onSend, onClose }: Props)
             ))}
           </div>
         </>
+      ) : tab === 'sticker' ? (
+        <StickerTab canSend={canSend} onSend={(p) => onSend('sticker', p)} />
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
           <input ref={fileRef} type="file" multiple className="hidden"

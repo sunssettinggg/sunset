@@ -35,7 +35,7 @@ async function myId(): Promise<string> {
 }
 
 // Обычные картинки для стикеров уменьшаем до 512 px (прозрачность сохраняется); GIF и анимированные оставляем как есть.
-async function shrink(file: File): Promise<{ blob: Blob; ext: string; type: string }> {
+export async function shrink(file: File): Promise<{ blob: Blob; ext: string; type: string }> {
   if (file.type === 'image/gif') return { blob: file, ext: 'gif', type: 'image/gif' }
   try {
     const bmp = await createImageBitmap(file)
